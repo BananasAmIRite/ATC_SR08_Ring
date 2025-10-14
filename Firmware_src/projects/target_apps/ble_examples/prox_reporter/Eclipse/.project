@@ -471,6 +471,16 @@
 			<locationURI>PARENT-5-PROJECT_LOC/sdk/ble_stack/profiles/suota/suotar/src/suotar_task.c</locationURI>
 		</link>
 		<link>
+			<name>user_app/accelerometer</name>
+			<type>2</type>
+			<location>C:/Users/jason/Documents/Coding/research/urop-smart-ring/ATC_SR08_Ring/Firmware_src/projects/target_apps/ble_examples/prox_reporter/src/accelerometer</location>
+		</link>
+		<link>
+			<name>user_app/leds.c</name>
+			<type>1</type>
+			<location>C:/Users/jason/Documents/Coding/research/urop-smart-ring/ATC_SR08_Ring/Firmware_src/projects/target_apps/ble_examples/prox_reporter/src/leds.c</location>
+		</link>
+		<link>
 			<name>user_app/main.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/src/user_proxr.c</locationURI>

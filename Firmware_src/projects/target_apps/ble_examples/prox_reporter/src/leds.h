@@ -1,3 +1,5 @@
+#ifndef _LEDS_H_
+#define _LEDS_H_
 
 #include "gpio.h"
 
@@ -12,3 +14,4 @@ void LED_Pin_Config(bool enable);
 void LED_Buff_setInt(uint32_t inputNum, unsigned char *LED_Buf, int lenInt);
 
 void LED_write(unsigned char *LED_Buffer, int line);
+#endif

@@ -1,5 +1,6 @@
 #include "accelerometer.h"
 #include "i2c.h"
+#include "arch_console.h"
 
 // I2C configuration for SC7A20
 static const i2c_cfg_t sc7a20_i2c_cfg = {

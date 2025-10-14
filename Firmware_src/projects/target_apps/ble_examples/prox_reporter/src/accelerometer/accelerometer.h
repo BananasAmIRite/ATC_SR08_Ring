@@ -1,3 +1,6 @@
+#ifndef _ACCEL_H_
+#define _ACCEL_H_
+
 #include "i2c.h"
 
 typedef struct {
@@ -11,3 +14,4 @@ bool accel_init(void);
 uint8_t accel_cmd_whoami(void);
 
 bool accel_cmd_readaccel(accel_data_t *accel_out);
+#endif
