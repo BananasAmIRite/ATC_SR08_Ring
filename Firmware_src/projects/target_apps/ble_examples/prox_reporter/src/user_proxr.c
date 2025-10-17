@@ -105,27 +105,37 @@ void refreshMenu()
 
 static void timer_cb(void)
 {
-        if(LED_Display_state) {
-            // on each timer callback, swap LED lines so that each line is written to
-            // after each line has been written to, refresh the menu
-                current_line++;
-                current_line%=6;
-                if(current_line == 0)
-                {
-                        counter_ms++;
-                        if(counter_ms >=55)// every 495ms
-                        {
-                            counter_ms = 0;
-                            counter_time++;
-                            arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
-                            //if(realUnix - turnOnTime >= 10)
-                                //       LED_GPIO_mode(0);
-                        }
-                        memset(LED_Buffer,0x00,sizeof(LED_Buffer));
-                        refreshMenu();
-                }
+    static uint8_t accel_counter = 0; 
+        // if(LED_Display_state) {
+        //     // on each timer callback, swap LED lines so that each line is written to
+        //     // after each line has been written to, refresh the menu
+        //         current_line++;
+        //         current_line%=6;
+        //         if(current_line == 0)
+        //         {
+        //                 counter_ms++;
+        //                 if(counter_ms >=55)// every 495ms
+        //                 {
+        //                     counter_ms = 0;
+        //                     counter_time++;
+        //                     arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
+        //                     //if(realUnix - turnOnTime >= 10)
+        //                         //       LED_GPIO_mode(0);
+        //                 }
+        //                 memset(LED_Buffer,0x00,sizeof(LED_Buffer));
+        //                 refreshMenu();
+        //         }
 
-                LED_write(&LED_Buffer, current_line);
+        //         LED_write(&LED_Buffer, current_line);
+        // }
+
+        if (++accel_counter >= 100) {
+            accel_counter = 0; 
+            accel_data_t out;
+
+            if (!accel_cmd_readaccel(&out)) return;
+
+            send_accel_data(&out);
         }
 }
 
@@ -176,7 +186,15 @@ void user_app_on_init(void)
 
      default_app_on_init();
      arch_printf("Booted now\r\n");
-     LED_GPIO_mode(1);
+    //  LED_GPIO_mode(1);
+
+    if (accel_init()) { // init accelerometer
+        arch_printf("Accelerometer initialized\r\n");
+        accel_service_init(); // init acceleration BLE service
+        start_refresh_timer(); // start timer to broadcast acceleration information
+    } else {
+        arch_printf("Accelerometer init failed\r\n");
+    }
 }
 
 static void app_button_press_cb(void)
@@ -256,12 +274,15 @@ void user_app_on_disconnect(struct gapc_disconnect_ind const *param)
         platform_reset(RESET_AFTER_SUOTA_UPDATE);
     }
 #endif
+
+    accel_service_on_disconnect();
 }
 
 void user_app_on_connect(uint8_t conidx, struct gapc_connection_req_ind const *param)
 {
     default_app_on_connection(conidx, param);
     arch_printf("BLE Connected\r\n");
+    accel_service_on_connect(conidx);
 }
 
 void app_advertise_complete(const uint8_t status)

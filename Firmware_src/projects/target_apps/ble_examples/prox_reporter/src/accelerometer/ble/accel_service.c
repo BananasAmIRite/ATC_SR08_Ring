@@ -53,8 +53,6 @@ void accel_service_on_disconnect(void ) {
      arch_printf("Accel service BLE disconnected.");
 }
 
-
-
 // TODO: hrps in sdk uses attm_svc_create_db to register to db; creates env to store everything
 void accel_service_init(void)
 {

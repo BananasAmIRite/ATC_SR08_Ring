@@ -27,7 +27,7 @@ void LED_Pin_Config(bool enable) {
         for (int i = 0; i < (sizeof(theLedGpiosLow)/sizeof(led_gpios)); ++i )
             GPIO_ConfigurePin(theLedGpiosLow[i].port, theLedGpiosLow[i].pin, OUTPUT, PID_GPIO, 0);
         for (int i = 0; i < (sizeof(theLedGpiosHigh)/sizeof(led_gpios)); ++i )
-                GPIO_ConfigurePin(theLedGpiosHigh[i].port, theLedGpiosHigh[i].pin, OUTPUT, PID_GPIO, 1);
+            GPIO_ConfigurePin(theLedGpiosHigh[i].port, theLedGpiosHigh[i].pin, OUTPUT, PID_GPIO, 1);
     } else {
         for (int i = 0; i < (sizeof(theLedGpiosLow)/sizeof(led_gpios)); ++i )
             GPIO_ConfigurePin(theLedGpiosLow[i].port, theLedGpiosLow[i].pin, INPUT_PULLDOWN, PID_GPIO, 0);
