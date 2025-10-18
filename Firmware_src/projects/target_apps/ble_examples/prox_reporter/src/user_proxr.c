@@ -137,7 +137,7 @@ static void timer_cb(void)
             if (!accel_cmd_readaccel(&out)) return;
             if (!accel_cmd_get_sensitivity(&sens)) return;
 
-            accel_convert_to_mg(sens, &out); 
+            accel_convert_to_mg(&out, sens); 
 
             send_accel_data(&out);
         }
