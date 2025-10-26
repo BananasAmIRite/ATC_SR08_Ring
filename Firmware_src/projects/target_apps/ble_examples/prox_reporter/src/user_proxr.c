@@ -31,6 +31,7 @@
 #include "leds.h"
 
 // #include "./accelerometer/ble/accel_service.h"
+#include "./accelerometer/accelerometer.h"
 
 
 #if defined(__IS_SDK6_COMPILER_GCC__) && !defined(__clang__)
@@ -68,6 +69,8 @@ uint32_t lastTime = 0;
 
 uint8_t LED_Display_state = 0;
 uint32_t turnOnTime = 0;
+
+uint8_t whoami_res = 0; 
 
 void calcTime()
 {
@@ -119,7 +122,9 @@ void refreshMenu()
         LED_Buff_setInt((realUnix % 3600) / 60, &LED_Buffer[3], 2);
         if((counter_time%2)==0)
                 LED_Buffer[2] = 0x48;*/
-        LED_Buff_setInt(lld_evt_time_get()/100, LED_Buffer, 5);
+
+        // uint8_t whoami = accel_cmd_whoami();
+        LED_Buff_setInt(whoami_res, LED_Buffer, 5);
 }
 
 static void timer_cb(void)
@@ -162,39 +167,6 @@ static void timer_cb(void)
         // }
 }
 
-// static void timer_cb(void)
-// {
-//         if(LED_Display_state){
-//                 current_line++;
-//                 current_line%=6;
-//                 if(current_line == 0)
-//                 {
-//                         counter_ms++;
-//                         if(counter_ms >=55)// every 495ms
-//                         {
-//                                 counter_ms = 0;
-//                                 counter_time++;
-//                                 arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
-//                                 //if(realUnix - turnOnTime >= 10)
-//                                  //       LED_GPIO_mode(0);
-
-//                         }
-//                         memset(LED_Buffer,0x00,sizeof(LED_Buffer));
-//                         refreshMenu();
-
-//                 }
-//                 uint8_t prev_line = (current_line + 5) % 6;
-//                 GPIO_SetActive( theLedGpiosHigh[prev_line].port, theLedGpiosHigh[prev_line].pin );
-//                 for(int i =0;i<7;i++)
-//                 {
-//                         if((LED_Buffer[current_line] >> i) & 1)
-//                                GPIO_SetActive( theLedGpiosLow[i].port, theLedGpiosLow[i].pin );
-//                         else
-//                                GPIO_SetInactive( theLedGpiosLow[i].port, theLedGpiosLow[i].pin );
-//                 }
-//                 GPIO_SetInactive( theLedGpiosHigh[current_line].port, theLedGpiosHigh[current_line].pin );
-//         }
-// }
 
 void start_refresh_timer(void)
 {
@@ -244,6 +216,12 @@ void user_app_on_init(void)
      default_app_on_init();
      arch_printf("Booted now\r\n");
      LED_GPIO_mode(0);
+
+     accel_init(); 
+
+     
+
+    whoami_res = accel_cmd_whoami();
 
     // if (accel_init()) { // init accelerometer
     //     arch_printf("Accelerometer initialized\r\n");
