@@ -1,6 +1,7 @@
 #include "accelerometer.h"
 #include "i2c.h"
 #include "arch_console.h"
+#include <user_periph_setup.h>
 
 // I2C configuration for SC7A20
 static const i2c_cfg_t sc7a20_i2c_cfg = {
@@ -11,19 +12,30 @@ static const i2c_cfg_t sc7a20_i2c_cfg = {
         .fs_lcnt = I2C_FS_SCL_LCNT_REG_RESET,
     },
     .restart_en = I2C_RESTART_ENABLE,
-    .speed = I2C_SPEED_FAST,        // 400 kHz
+    .speed = I2C_SPEED_STANDARD,        // 400 kHz
     .mode = I2C_MODE_MASTER,
     .addr_mode = I2C_ADDRESSING_7B,
     .address = 0x18, // SC7A20 i2c addr
-    .tx_fifo_level = 16,
-    .rx_fifo_level = 16,
+    .tx_fifo_level = 4,
+    .rx_fifo_level = 4,
 };
 
 bool accel_init(void) {
+
+    GPIO_ConfigurePin(I2C_SCL_PORT, I2C_SCL_PIN, OUTPUT, PID_I2C_SCL, false);
+    GPIO_ConfigurePin(I2C_SDA_PORT, I2C_SDA_PIN, OUTPUT, PID_I2C_SDA, false);
+
     i2c_init(&sc7a20_i2c_cfg);
 
+    
+    arch_printf("Accelerometer Initialized successfully");
+    
+    return true; 
+}
+
+bool accel_config(void) {
     // config accelerometer
-    uint8_t abort_code;
+    i2c_abort_t abort_code;
     uint8_t config[2] = {0x20, 0b01010111}; // ctrl reg 1, 0101 = 100hz, 0 = sleep, 111 = enable xyz
     i2c_master_transmit_buffer_sync(config, sizeof(uint8_t)*2, &abort_code, I2C_F_NONE);
 
@@ -32,18 +44,18 @@ bool accel_init(void) {
         return false;
     }
 
-    arch_printf("Accelerometer Initialized successfully");
+    arch_printf("Accelerometer Configured successfully");
     return true;
 }
 
 uint8_t accel_cmd_whoami(void) {
     uint8_t whoami_addr = 0x0F; // whoami addr 
     i2c_abort_t abort_code;
-    i2c_master_transmit_buffer_sync(&whoami_addr, 1, &abort_code, I2C_F_NONE); 
+    i2c_master_transmit_buffer_sync(&whoami_addr, sizeof(uint8_t), &abort_code, I2C_F_NONE); 
 
     if (abort_code != I2C_ABORT_NONE) {
         arch_printf("SC7A20: I2C write failed, error: %d\r\n", abort_code);
-        return -1;
+        return 0xFF;
     }
 
     uint8_t res;
@@ -51,7 +63,7 @@ uint8_t accel_cmd_whoami(void) {
     i2c_master_receive_buffer_sync(&res, 1, &abort_code, I2C_F_WAIT_FOR_STOP);
     if (abort_code != I2C_ABORT_NONE) {
         arch_printf("SC7A20: I2C read failed, error: %d\r\n", abort_code);
-        return -1;
+        return 0xFF;
     }
 
     return res; 
@@ -83,7 +95,7 @@ bool accel_cmd_readaccel(accel_data_t *accel_out) {
     accel_out->y = accel_y; 
     accel_out->z = accel_z;
 
-    return true;
+    return true; 
 }
 
 bool accel_cmd_get_sensitivity(accel_sensitivity_t* sensitivity_out) {

@@ -67,10 +67,28 @@ uint8_t current_line = 0;
 uint32_t realUnix = 0;
 uint32_t lastTime = 0;
 
+uint32_t led_value = 0;
+
 uint8_t LED_Display_state = 0;
 uint32_t turnOnTime = 0;
 
 uint8_t whoami_res = 0; 
+
+static timer_hnd main_timer_hnd = EASY_TIMER_INVALID_TIMER; 
+
+typedef enum {
+    DEFAULT,
+    ACCEL_INIT,
+    ACCEL_CONFIG,  
+    WHOAMI, 
+    DISP_INFO, 
+    NUM_STATES
+} user_state_t;
+
+uint8_t user_state = 0;
+bool user_run = false;  
+
+bool has_timer_started = false; 
 
 void calcTime()
 {
@@ -101,7 +119,7 @@ void LED_GPIO_mode(uint8_t mode)
                         timer0_enable_irq();
                         timer0_start();
                 }
-        }else{
+        } else {
                 if(LED_Display_state != 0)
                 {
                         LED_Display_state = 0;
@@ -124,34 +142,38 @@ void refreshMenu()
                 LED_Buffer[2] = 0x48;*/
 
         // uint8_t whoami = accel_cmd_whoami();
-        LED_Buff_setInt(whoami_res, LED_Buffer, 5);
+
+        LED_Buff_setInt(led_value, LED_Buffer, 5);
 }
 
 static void timer_cb(void)
 {
     // static uint8_t accel_counter = 0; 
-        if(LED_Display_state) {
-            // on each timer callback, swap LED lines so that each line is written to
-            // after each line has been written to, refresh the menu
-                current_line++;
-                current_line%=6;
-                if(current_line == 0)
-                {
-                        counter_ms++;
-                        if(counter_ms >=55)// every 495ms
-                        {
-                            counter_ms = 0;
-                            counter_time++;
-                            arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
-                            //if(realUnix - turnOnTime >= 10)
-                                //       LED_GPIO_mode(0);
-                        }
-                        memset(LED_Buffer,0x00,sizeof(LED_Buffer));
-                        refreshMenu();
-                }
 
-                LED_write(LED_Buffer, current_line);
-        }
+    if(LED_Display_state) {
+        // on each timer callback, swap LED lines so that each line is written to
+        // after each line has been written to, refresh the menu
+            current_line++;
+            current_line%=6;
+            if(current_line == 0)
+            {
+                    counter_ms++;
+                    if(counter_ms >=55)// every 495ms
+                    {
+                        counter_ms = 0;
+                        counter_time++;
+                        arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
+                        //if(realUnix - turnOnTime >= 10)
+                            //       LED_GPIO_mode(0);
+                    }
+                    memset(LED_Buffer,0x00,sizeof(LED_Buffer));
+                    refreshMenu();
+            }
+
+            LED_write(LED_Buffer, current_line);
+    }
+
+
 
         // if (++accel_counter >= 100) {
         //     accel_counter = 0; 
@@ -165,6 +187,67 @@ static void timer_cb(void)
 
         //     send_accel_data(&out);
         // }
+}
+
+static void main_timer_cb(void) {
+
+    if (!user_run) {
+        start_main_timer();
+        return; 
+    }
+
+    if (user_state == DEFAULT) {
+        // default nothing state
+        LED_GPIO_mode(0);
+        user_run = false; 
+    } else if (user_state == ACCEL_INIT) {
+        LED_GPIO_mode(1);
+        bool val = accel_init(); 
+
+        if (val) {
+            led_value = 1;
+        } else {
+            led_value = 11; 
+        } 
+        
+        // stop after running once
+        user_run = false; 
+    } else if (user_state == ACCEL_CONFIG) {
+        LED_GPIO_mode(1);
+
+        bool val = accel_config(); 
+
+        accel_sensitivity_t sens; 
+        accel_cmd_get_sensitivity(&sens); 
+
+        led_value = sens; 
+        
+        // if (val) {
+        //     led_value = 100; 
+        // } else {
+        //     led_value = 9; 
+        // }
+        
+        user_run = false; 
+    } else if (user_state == WHOAMI) {
+        // user_run = false;
+        LED_GPIO_mode(1); 
+        uint8_t whoami_out = accel_cmd_whoami(); 
+        
+        led_value = whoami_out; 
+
+        user_run = false; 
+    } else if (user_state == DISP_INFO) {
+        // led_value = 1; 
+        LED_GPIO_mode(1);
+        led_value = 1; 
+        user_run = false; 
+    } else {
+        // stop running if invalid state
+        user_run = false; 
+    }
+
+    start_main_timer();
 }
 
 
@@ -183,6 +266,10 @@ void start_refresh_timer(void)
         // reload value for 100ms (T = 1/200kHz * RELOAD_100MS = 0,000005 * 20000 = 100ms)
         timer0_set_pwm_on_counter(300);
         timer0_register_callback(timer_cb);
+}
+
+void start_main_timer(void) {
+    main_timer_hnd = app_easy_timer(100, main_timer_cb);
 }
 
 static void app_wakeup_cb(void)
@@ -214,14 +301,14 @@ void user_app_on_init(void)
 {
 
      default_app_on_init();
+    //  start_main_timer();
      arch_printf("Booted now\r\n");
      LED_GPIO_mode(0);
 
-     accel_init(); 
 
-     
+    
 
-    whoami_res = accel_cmd_whoami();
+    // whoami_res = accel_cmd_whoami();
 
     // if (accel_init()) { // init accelerometer
     //     arch_printf("Accelerometer initialized\r\n");
@@ -240,11 +327,19 @@ static void app_button_press_cb(void)
     if(GPIO_GetPinStatus(GPIO_BUTTON_PORT, GPIO_BUTTON_PIN))
             return;
     arch_printf("Button was just pressed\r\n");
-    if(LED_Display_state){
-            LED_GPIO_mode(0);
-    }else{
-            LED_GPIO_mode(1);
+    // if(LED_Display_state){
+    //         LED_GPIO_mode(0);
+    // }else{
+    //         LED_GPIO_mode(1);
+    // }
+
+    if (user_state == DEFAULT && !has_timer_started) {
+        has_timer_started = true; 
+        start_main_timer(); 
     }
+
+    user_state = (user_state + 1) % NUM_STATES;
+    user_run = true; 
 }
 
 void app_button_enable(void)
@@ -293,6 +388,11 @@ void user_app_on_disconnect(struct gapc_disconnect_ind const *param)
 {
     arch_printf("BLE Disconnected\r\n");
     default_app_on_disconnect(NULL);
+
+    if (main_timer_hnd != EASY_TIMER_INVALID_TIMER) {
+        app_easy_timer_cancel(main_timer_hnd);
+        main_timer_hnd = EASY_TIMER_INVALID_TIMER;
+    }
 
 #if (BLE_BATT_SERVER)
     app_batt_poll_stop();

@@ -18,6 +18,8 @@ typedef enum {
 
 bool accel_init(void);
 
+bool accel_config(void);
+
 uint8_t accel_cmd_whoami(void);
 
 // reads (unconverted) acceleration data into accel_out
