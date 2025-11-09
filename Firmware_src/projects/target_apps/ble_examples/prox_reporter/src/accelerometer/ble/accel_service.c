@@ -1,6 +1,8 @@
 #include "gattc_task.h"
 #include "gattm_task.h"
 #include "attm.h"
+#include "att.h"
+#include "attm_db.h"
 #include "app.h"
 #include "app_task.h"
 #include "accel_service.h"
@@ -9,9 +11,8 @@
 #include "../accelerometer.h"
 
 // Custom UUIDs for accelerometer service (128-bit)
-static const uint16_t accel_service_uuid = ATT_UUID_16(0x3000);
-
-static const uint16_t accel_char_uuid = ATT_UUID_16(0x3A00); 
+static const uint16_t accel_service_uuid = ATT_UUID_16(0x3000); // Little-endian
+static const uint16_t accel_char_uuid = ATT_UUID_16(0x3A00);    // Little-endian
 
 // Service handles (will be set when service is added)
 static uint16_t accel_svc_start_hdl = 0;
@@ -21,26 +22,36 @@ static uint8_t current_conidx = GAP_INVALID_CONIDX;
 // GATT attribute database
 static const struct attm_desc accel_att_db[ACCEL_SVC_IDX_NB] = {
     // Service Declaration
-    [ACCEL_SVC_IDX_SVC]  = {ATT_DECL_PRIMARY_SERVICE, PERM(RD, ENABLE), 
+    [ACCEL_SVC_IDX_SVC]  = {
+        .uuid = ATT_DECL_PRIMARY_SERVICE, 
+        .perm = PERM(RD, ENABLE), 
         // 0, 
-        0},
+        .max_size = 0
+    },
     
     // Characteristic Declaration
-    [ACCEL_SVC_IDX_CHAR] = {ATT_DECL_CHARACTERISTIC, PERM(RD, ENABLE), 
+    [ACCEL_SVC_IDX_CHAR] = {
+        .uuid = ATT_DECL_CHARACTERISTIC, 
+        .perm = PERM(RD, ENABLE), 
         // 0, 
-        0},
+        .max_size =  0x02 // ATT_CHAR_PROP_RD | ATT_CHAR_PROP_NTF
+    },
     
     // Characteristic Value - accelerometer data (6 bytes: X,Y,Z as 16-bit each)
-    [ACCEL_SVC_IDX_VAL]  = {accel_char_uuid, 
-                            PERM(RD, ENABLE) | PERM(NTF, ENABLE), 
-                            // PERM(RI, ENABLE), 
-                            6},
+    [ACCEL_SVC_IDX_VAL]  = {
+        .uuid = accel_char_uuid, 
+        .perm = PERM(RD, ENABLE), 
+        // PERM(RI, ENABLE), 
+        .max_size = 6 | PERM(RI, DISABLE)
+    },
     
     // Client Characteristic Configuration Descriptor
-    [ACCEL_SVC_IDX_CFG]  = {ATT_DESC_CLIENT_CHAR_CFG, 
-                            PERM(RD, ENABLE) | PERM(WRITE_REQ, ENABLE), 
-                            // 0, 
-                            0},
+    // [ACCEL_SVC_IDX_CFG]  = {
+    //     .uuid = ATT_DESC_CLIENT_CHAR_CFG, 
+    //     .perm = PERM(RD, ENABLE) | PERM(WRITE_REQ, ENABLE), 
+    //     // 0, 
+    //     .max_size = 2
+    // },
 };
 
 void accel_service_on_connect(uint8_t conidx) {
@@ -48,13 +59,17 @@ void accel_service_on_connect(uint8_t conidx) {
     arch_printf("Accel service BLE connected. Connection ID: %d", current_conidx);
 }
 
-void accel_service_on_disconnect(void ) {
+void accel_service_on_disconnect(void) {
     current_conidx = GAP_INVALID_CONIDX;
      arch_printf("Accel service BLE disconnected.");
 }
 
+uint16_t get_accel_char_hdl(void) {
+    return accel_char_hdl; 
+}
+
 // TODO: hrps in sdk uses attm_svc_create_db to register to db; creates env to store everything
-void accel_service_init(void)
+uint8_t accel_service_init(void)
 {
     uint8_t status = attm_svc_create_db(&accel_svc_start_hdl,           // Handle output
                                         accel_service_uuid, // Service UUID
@@ -63,20 +78,22 @@ void accel_service_init(void)
                                         NULL,                             // No attribute mask
                                         TASK_APP,                         // Task handling events
                                         accel_att_db,                     // Attribute database
-                                        PERM(SVC_MI, DISABLE));           // Service permissions
+                                        PERM(SVC_PRIMARY, ENABLE) | PERM(SVC_MI, DISABLE));           // Service permissions
 
     if (status == ATT_ERR_NO_ERROR) {
         // Service created successfully - calculate characteristic handle
         accel_char_hdl = accel_svc_start_hdl + ACCEL_SVC_IDX_VAL;
         
         arch_printf("Accelerometer service created successfully!\r\n");
-        arch_printf("  Service start handle: %d (0x%04X)\r\n", accel_svc_start_hdl, accel_svc_start_hdl);
-        arch_printf("  Characteristic handle: %d (0x%04X)\r\n", accel_char_hdl, accel_char_hdl);
-        arch_printf("  CCCD handle: %d (0x%04X)\r\n", 
-                   accel_svc_start_hdl + ACCEL_SVC_IDX_CFG, 
-                   accel_svc_start_hdl + ACCEL_SVC_IDX_CFG);
+        // arch_printf("  Service start handle: %d (0x%04X)\r\n", accel_svc_start_hdl, accel_svc_start_hdl);
+        // arch_printf("  Characteristic handle: %d (0x%04X)\r\n", accel_char_hdl, accel_char_hdl);
+        // arch_printf("  CCCD handle: %d (0x%04X)\r\n", 
+        //            accel_svc_start_hdl + ACCEL_SVC_IDX_CFG, 
+        //            accel_svc_start_hdl + ACCEL_SVC_IDX_CFG);
+        return 0x00;
     } else {
         arch_printf("Failed to create accelerometer service (status: %d)\r\n", status);
+        return status; 
     }
 }
 
@@ -109,4 +126,17 @@ void send_accel_data(accel_data_t *accel)
     accel_bytes[5] = (uint8_t)((accel->z >> 8) & 0xFF);
     
     send_ble_notification(accel_char_hdl, accel_bytes, 6);
+}
+
+uint8_t update_accel_values(accel_data_t *accel) {
+    uint8_t accel_bytes[6];
+    accel_bytes[0] = (uint8_t)(accel->x & 0xFF);
+    accel_bytes[1] = (uint8_t)((accel->x >> 8) & 0xFF);
+    accel_bytes[2] = (uint8_t)(accel->y & 0xFF);
+    accel_bytes[3] = (uint8_t)((accel->y >> 8) & 0xFF);
+    accel_bytes[4] = (uint8_t)(accel->z & 0xFF);
+    accel_bytes[5] = (uint8_t)((accel->z >> 8) & 0xFF);
+
+    // Update the characteristic value
+    return attmdb_att_set_value(accel_char_hdl, 6, 0, accel_bytes);
 }

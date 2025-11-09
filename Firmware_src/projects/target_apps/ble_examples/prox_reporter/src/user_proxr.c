@@ -30,7 +30,7 @@
 
 #include "leds.h"
 
-// #include "./accelerometer/ble/accel_service.h"
+#include "./accelerometer/ble/accel_service.h"
 #include "./accelerometer/accelerometer.h"
 
 
@@ -74,14 +74,20 @@ uint32_t turnOnTime = 0;
 
 uint8_t whoami_res = 0; 
 
+
+accel_sensitivity_t sens; 
+
 static timer_hnd main_timer_hnd = EASY_TIMER_INVALID_TIMER; 
 
 typedef enum {
     DEFAULT,
     ACCEL_INIT,
-    ACCEL_CONFIG,  
+    ACCEL_CONFIG, 
+    ACCEL_SENS, 
     WHOAMI, 
     DISP_INFO, 
+    BT_INIT, 
+    BT_NOTIF, 
     NUM_STATES
 } user_state_t;
 
@@ -217,10 +223,9 @@ static void main_timer_cb(void) {
 
         bool val = accel_config(); 
 
-        accel_sensitivity_t sens; 
-        accel_cmd_get_sensitivity(&sens); 
-
-        led_value = sens; 
+        bool out = accel_cmd_set_sensitivity(SENS_16G);
+     
+        led_value = out; 
         
         // if (val) {
         //     led_value = 100; 
@@ -228,6 +233,12 @@ static void main_timer_cb(void) {
         //     led_value = 9; 
         // }
         
+        user_run = false; 
+    } else if (user_state == ACCEL_SENS) {
+
+        accel_cmd_get_sensitivity(&sens); 
+
+        led_value = sens; 
         user_run = false; 
     } else if (user_state == WHOAMI) {
         // user_run = false;
@@ -240,8 +251,41 @@ static void main_timer_cb(void) {
     } else if (user_state == DISP_INFO) {
         // led_value = 1; 
         LED_GPIO_mode(1);
-        led_value = 1; 
+
+        accel_data_t data; 
+
+        accel_cmd_readaccel(&data); 
+
+        accel_convert_to_mg(&data, sens); 
+
+        led_value = abs(data.y); 
+        // user_run = false; 
+    } else if (user_state == BT_INIT) {
+        LED_GPIO_mode(1);
+        uint8_t val = accel_service_init(); 
+
+        led_value = val; 
+
         user_run = false; 
+    } else if (user_state == BT_NOTIF) {
+        
+        // led_value = get_accel_char_hdl(); 
+
+        accel_data_t accel_data;
+        
+        // Read your accelerometer
+        bool out = accel_cmd_readaccel(&accel_data);
+
+        // led_value = out * 999; 
+
+        uint8_t val = update_accel_values(&accel_data); 
+
+        led_value = abs(accel_data.x); 
+        
+        // // Send BLE notification
+        // send_accel_data(&accel_data);
+        
+        // user_run = false;
     } else {
         // stop running if invalid state
         user_run = false; 
@@ -410,14 +454,14 @@ void user_app_on_disconnect(struct gapc_disconnect_ind const *param)
     }
 #endif
 
-    // accel_service_on_disconnect();
+    accel_service_on_disconnect();
 }
 
 void user_app_on_connect(uint8_t conidx, struct gapc_connection_req_ind const *param)
 {
     default_app_on_connection(conidx, param);
     arch_printf("BLE Connected\r\n");
-    // accel_service_on_connect(conidx);
+    accel_service_on_connect(conidx);
 }
 
 void app_advertise_complete(const uint8_t status)
