@@ -246,11 +246,40 @@ static void main_timer_cb(void) {
         led_value = abs(data.y); 
         // user_run = false; 
     } else if (user_state == BT_INIT) {
-        LED_GPIO_mode(1);
+            LED_GPIO_mode(0); 
+        
+        accel_data_t data; 
+
+        accel_cmd_readaccel(&data); 
+
+        accel_convert_to_mg(&data, sens); 
+
+        #if (BLE_CUSTOM1_SERVER)
+            update_accel_data(&data); 
+            // update_accel_data(); 
+        #endif
+        // LED_GPIO_mode(1);
         user_run = false; 
     } else if (user_state == BT_NOTIF) {
+        LED_GPIO_mode(0); 
         
-        user_run = false;
+        accel_data_t data; 
+
+        accel_cmd_readaccel(&data); 
+
+        accel_convert_to_mg(&data, sens); 
+
+        #if (BLE_CUSTOM1_SERVER)
+            // Update the characteristic value using message-based approach
+            // This is now safe to call repeatedly - it sends a message instead
+            // of directly modifying the database
+            update_accel_data(&data);
+        #endif
+
+        // Keep running for continuous updates at 10Hz (every 100ms)
+        // user_run = true; 
+        
+        user_run = false; // Single update per button press (safe for testing)
     } else {
         // stop running if invalid state
         user_run = false; 

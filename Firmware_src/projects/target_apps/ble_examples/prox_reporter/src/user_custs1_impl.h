@@ -36,7 +36,7 @@
  ****************************************************************************************
  */
 #include "custs1_task.h"
-
+#include "accelerometer.h"
 
 #if (BLE_CUSTOM1_SERVER)
 /*
@@ -48,6 +48,22 @@ void user_custs1_wr_ind_handler(ke_msg_id_t const msgid,
                                      struct custs1_val_write_ind const *param,
                                      ke_task_id_t const dest_id,
                                      ke_task_id_t const src_id);
+
+/**
+ ****************************************************************************************
+ * @brief Update the accelerometer characteristic value in the database
+ * @param[in] accel_data Pointer to accelerometer data structure (can be NULL for test data)
+ ****************************************************************************************
+ */
+void update_accel_data(const accel_data_t *accel_data);
+
+// /**
+//  ****************************************************************************************
+//  * @brief Send accelerometer data notification to connected client
+//  * @param[in] accel_data Pointer to accelerometer data structure (can be NULL for test data)
+//  ****************************************************************************************
+//  */
+// void notify_accel_data(const accel_data_t *accel_data);
 
 #endif
 

@@ -11,6 +11,15 @@
         <button id="led-on" disabled>LED On</button>
         <button id="led-off" disabled>LED Off</button>
         <button id="disconnect" disabled>Disconnect</button>
+
+        <h2>Accelerometer Data</h2>
+        <button id="start-plot" disabled>Start Plotting</button>
+        <button id="stop-plot" disabled>Stop Plotting</button>
+        <div style="width: 80%; margin: 20px auto">
+            <canvas id="accelChart"></canvas>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="index.js"></script>
     </body>
 </html>

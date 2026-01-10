@@ -63,6 +63,13 @@
 #define DEF_SVC1_CTRL_POINT_USER_DESC      "Control Point"
 
 
+#define DEF_SVC1_ACCEL_UUID_128       {0xCC, 0x65, 0x9F, 0xC1, 0x38, 0x8B, 0x10, 0x4C, 0xA2, 0x8D, 0xE5, 0x4C, 0x65, 0x91, 0x90, 0xF2}
+
+#define DEF_SVC1_ACCEL_CHAR_LEN       6
+
+#define DEF_SVC1_ACCEL_USER_DESC      "Accelerometer Data"
+
+
 /// Custom1 Service Data Base Characteristic enum
 enum
 {
@@ -72,6 +79,10 @@ enum
     SVC1_IDX_CTRL_POINT_CHAR,
     SVC1_IDX_CTRL_POINT_VAL,
     SVC1_IDX_CTRL_POINT_USER_DESC,
+
+    SVC1_IDX_ACCEL_CHAR, 
+    SVC1_IDX_ACCEL_VAL, 
+    SVC1_IDX_ACCEL_USER_DESC,
 
     CUSTS1_IDX_NB
 };

@@ -59,7 +59,10 @@
 // Service 1 of the custom server 1
 static const att_svc_desc128_t custs1_svc1 = DEF_SVC1_UUID_128;
 
+// led control point
 static const uint8_t SVC1_CTRL_POINT_UUID_128[ATT_UUID_128_LEN] = DEF_SVC1_CTRL_POINT_UUID_128;
+
+static const uint8_t SVC1_ACCEL_UUID_128[ATT_UUID_128_LEN] = DEF_SVC1_ACCEL_UUID_128; 
 
 // Attribute specifications
 static const uint16_t att_decl_svc       = ATT_DECL_PRIMARY_SERVICE;
@@ -99,6 +102,18 @@ const struct attm_desc_128 custs1_att_db[CUSTS1_IDX_NB] =
     // Control Point Characteristic User Description
     [SVC1_IDX_CTRL_POINT_USER_DESC]   = {(uint8_t*)&att_desc_user_desc, ATT_UUID_16_LEN, PERM(RD, ENABLE),
                                             sizeof(DEF_SVC1_CTRL_POINT_USER_DESC) - 1, sizeof(DEF_SVC1_CTRL_POINT_USER_DESC) - 1, (uint8_t*)DEF_SVC1_CTRL_POINT_USER_DESC},
+
+    // Accelerometer Characteristic Declaration
+    [SVC1_IDX_ACCEL_CHAR]        = {(uint8_t*)&att_decl_char, ATT_UUID_16_LEN, PERM(RD, ENABLE),
+                                            0, 0, NULL},
+
+    // Accelerometer Characteristic Value
+    [SVC1_IDX_ACCEL_VAL]         = {SVC1_ACCEL_UUID_128, ATT_UUID_128_LEN, PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE),
+                                            DEF_SVC1_ACCEL_CHAR_LEN, 0, NULL},
+
+    // Accelerometer Characteristic User Description
+    [SVC1_IDX_ACCEL_USER_DESC]   = {(uint8_t*)&att_desc_user_desc, ATT_UUID_16_LEN, PERM(RD, ENABLE),
+                                            sizeof(DEF_SVC1_ACCEL_USER_DESC) - 1, sizeof(DEF_SVC1_ACCEL_USER_DESC) - 1, (uint8_t*)DEF_SVC1_ACCEL_USER_DESC},
 };
 
 /// @} USER_CONFIG
