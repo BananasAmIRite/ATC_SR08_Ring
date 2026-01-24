@@ -44,6 +44,8 @@ stopPlotBtn?.addEventListener('click', () => {
 
 stopClassifyBtn?.addEventListener('click', async () => {
     const val = await handlers.stopAndClassify();
+    setNtfHandler((a) => {});
+    displayClassificationResult(val);
     console.log(val);
 });
 
@@ -92,3 +94,27 @@ function displayMLRecorderDataList() {
 // Optionally, add a button to trigger this display
 const showDataBtn = document.getElementById('show-ml-data');
 showDataBtn?.addEventListener('click', displayMLRecorderDataList);
+
+// Utility to display classification result
+function displayClassificationResult(result: any) {
+    let pre = document.getElementById('ml-classify-result') as HTMLPreElement;
+    if (!pre) {
+        pre = document.createElement('pre');
+        pre.id = 'ml-classify-result';
+        document.body.appendChild(pre);
+    }
+    // If result is an array of objects with label/confidence, display sorted and bold top
+    if (Array.isArray(result) && result.length && result[0].label && result[0].confidence !== undefined) {
+        const sorted = [...result].sort((a, b) => b.confidence - a.confidence);
+        let html = 'Classification Result:\n';
+        sorted.forEach((item, idx) => {
+            const line = `${item.label}: ${(item.confidence * 100).toFixed(1)}%`;
+            html += idx === 0 ? `**${line}**\n` : `${line}\n`;
+        });
+        // Render bold using <b> in a <pre> (works in most browsers)
+        pre.innerHTML = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    } else {
+        pre.textContent =
+            typeof result === 'string' ? result : `Classification Result:\n${JSON.stringify(result, null, 2)}`;
+    }
+}

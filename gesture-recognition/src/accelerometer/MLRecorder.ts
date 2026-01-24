@@ -3,6 +3,7 @@ import { prepareData } from '../ml/preprocessing';
 import { AccelDataPoint } from '../plot';
 import { AccelNtfHandler } from './ble';
 import { separateGravityAndLinearAccel } from '../ml/filters';
+import { augmentByZRotation } from '../ml/datagen';
 
 export default class DataRecorder {
     private datapoints: { data: AccelDataPoint[]; label: string }[] = [];
@@ -27,7 +28,13 @@ export default class DataRecorder {
 
         // train stuff
 
-        const preppedData = this.datapoints.map((e) => ({
+        const augmented = this.datapoints.flatMap((e) =>
+            augmentByZRotation(e.data, 8).map((a) => ({ label: e.label, data: a })),
+        );
+
+        console.log('augmented', augmented);
+
+        const preppedData = augmented.map((e) => ({
             data: prepareData(e.data, this.resampleSize),
             label: e.label,
         }));
@@ -65,7 +72,7 @@ export default class DataRecorder {
             if (accumData.length == 0) return;
             console.log(`data: `, accumData);
             // separate gravity and accel for this series of data
-            const separated = separateGravityAndLinearAccel(accumData, 0.8).linear;
+            const separated = separateGravityAndLinearAccel(accumData, 0.8).world;
             console.log(`Separated: `, separated);
 
             this.addPoint(separated);
@@ -82,7 +89,7 @@ export default class DataRecorder {
                 if (accumData.length == 0) return;
                 console.log(`data: `, accumData);
                 // separate gravity and accel for this series of data
-                const separated = separateGravityAndLinearAccel(accumData, 0.8).linear;
+                const separated = separateGravityAndLinearAccel(accumData, 0.8).world;
                 console.log(`Separated: `, separated);
 
                 const prepped = prepareData(separated, this.resampleSize);
