@@ -1,13 +1,27 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { readFileSync } from 'node:fs';
-// import * as mixer from 'native-sound-mixer';
+import SoundMixer, { Device } from 'native-sound-mixer';
+import { load, alias } from 'koffi';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
     app.quit();
 }
+
+alias('HWND', 'void *');
+alias('HANDLE', 'void *');
+alias('HMODULE', 'void *');
+alias('LPCSTR', 'const char *'); // For function names ending in 'A'
+alias('LPCWSTR', 'const char16_t *'); // For function names ending in 'W'
+alias('BOOL', 'int');
+alias('DWORD', 'uint32_t');
+
+const user32 = load('user32.dll');
+
+const GetForegroundWindow = user32.func('HWND __stdcall GetForegroundWindow()');
+
+const ShowWindow = user32.func('bool __stdcall ShowWindow(HWND hWnd, int nCmdShow)');
 
 const createWindow = () => {
     // Create the browser window.
@@ -19,8 +33,6 @@ const createWindow = () => {
         },
     });
 
-    // mixer.default.getDefaultDevice(0).volume = 0.5;
-    // console.log('hi');
     mainWindow.webContents.on('select-bluetooth-device', (event, deviceList, callback) => {
         // Don't prevent default - this allows the native Chrome Bluetooth picker to appear
         event.preventDefault();
@@ -40,6 +52,19 @@ const createWindow = () => {
         }
     });
 
+    // handle volume controls
+    ipcMain.on('volume-change', (event, val) => {
+        const webContents = event.sender;
+
+        SoundMixer.default.getDefaultDevice(0).volume = val;
+    });
+
+    ipcMain.on('minimize-foreground', (event) => {
+        const hwnd = GetForegroundWindow();
+
+        ShowWindow(hwnd, 6);
+    });
+
     // and load the index.html of the app.
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
         mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -48,7 +73,7 @@ const createWindow = () => {
     }
 
     // Open the DevTools.
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished

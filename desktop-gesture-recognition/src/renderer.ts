@@ -170,3 +170,7 @@ function displayClassificationResult(result: any) {
             typeof result === 'string' ? result : `Classification Result:\n${JSON.stringify(result, null, 2)}`;
     }
 }
+
+// volInput.addEventListener('input', (event) => {
+//     window.electronAPI.setSystemVolume((parseInt((event.target as HTMLInputElement).value) as number) / 100);
+// });

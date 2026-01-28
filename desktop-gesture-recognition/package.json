@@ -28,6 +28,7 @@
         "@electron-forge/plugin-fuses": "^7.11.1",
         "@electron-forge/plugin-vite": "^7.11.1",
         "@electron/fuses": "^1.8.0",
+        "@electron/typescript-definitions": "^9.1.5",
         "@types/electron-squirrel-startup": "^1.0.2",
         "@types/web-bluetooth": "^0.0.21",
         "@typescript-eslint/eslint-plugin": "^5.62.0",
@@ -42,6 +43,7 @@
         "chart.js": "^4.5.1",
         "electron-squirrel-startup": "^1.0.1",
         "electron-vite": "^5.0.0",
+        "koffi": "^2.15.1",
         "native-sound-mixer": "^3.4.6-win"
     }
 }
