@@ -23,6 +23,8 @@ const GetForegroundWindow = user32.func('HWND __stdcall GetForegroundWindow()');
 
 const ShowWindow = user32.func('bool __stdcall ShowWindow(HWND hWnd, int nCmdShow)');
 
+let currentMinimizedHwnd = -1;
+
 const createWindow = () => {
     // Create the browser window.
     const mainWindow = new BrowserWindow({
@@ -54,15 +56,27 @@ const createWindow = () => {
 
     // handle volume controls
     ipcMain.on('volume-change', (event, val) => {
-        const webContents = event.sender;
+        // const webContents = event.sender;
 
         SoundMixer.default.getDefaultDevice(0).volume = val;
     });
 
-    ipcMain.on('minimize-foreground', (event) => {
-        const hwnd = GetForegroundWindow();
+    // handle volume controls
+    ipcMain.on('volume-increment', (event, val) => {
+        SoundMixer.default.getDefaultDevice(0).volume += val;
+    });
 
-        ShowWindow(hwnd, 6);
+    ipcMain.on('minimize-foreground', (event) => {
+        currentMinimizedHwnd = GetForegroundWindow();
+
+        ShowWindow(currentMinimizedHwnd, 6);
+    });
+
+    ipcMain.on('maximize-foreground', (event) => {
+        if (currentMinimizedHwnd == -1) return;
+
+        ShowWindow(currentMinimizedHwnd, 9);
+        currentMinimizedHwnd = -1;
     });
 
     // and load the index.html of the app.
