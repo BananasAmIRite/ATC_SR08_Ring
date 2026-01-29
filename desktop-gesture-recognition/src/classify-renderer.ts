@@ -92,7 +92,7 @@ if (classifyPage) {
                     window.electronAPI.minimizeForegroundWindow();
                     break;
                 case 'vert-tap':
-                    window.electronAPI.maxmimizeForegroundWindow();
+                    window.electronAPI.maximizeForegroundWindow();
                     break;
                 default:
                     break;

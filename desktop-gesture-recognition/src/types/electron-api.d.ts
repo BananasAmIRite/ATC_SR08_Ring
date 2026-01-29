@@ -6,7 +6,7 @@ declare global {
             setSystemVolume: (volume: number) => void;
             incrementSystemVolume: (amount: number) => void;
             minimizeForegroundWindow: () => void;
-            maxmimizeForegroundWindow: () => void;
+            maximizeForegroundWindow: () => void;
         };
     }
 }

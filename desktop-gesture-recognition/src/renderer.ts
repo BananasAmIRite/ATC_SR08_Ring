@@ -34,6 +34,7 @@
 import { connectToBLE, disconnectFromBLE, setNtfHandler } from './lib/shared/accelerometer/ble';
 import { clearAccelPlot, initAccelChart, plotAccelData } from './lib/shared/plot';
 import ClassificationMLRecorder from './lib/classify/ClassificationMLRecorder';
+import { debounce } from './lib/utils';
 
 initAccelChart('accel-chart');
 
@@ -119,10 +120,10 @@ function handleClassificationResult(result: any) {
                 window.electronAPI.incrementSystemVolume(-3);
                 break;
             case 'horiz-tap':
-                window.electronAPI.minimizeForegroundWindow();
+                debounce(1)(() => window.electronAPI.minimizeForegroundWindow());
                 break;
             case 'vert-tap':
-                window.electronAPI.maxmimizeForegroundWindow();
+                debounce(1)(() => window.electronAPI.maximizeForegroundWindow());
                 break;
             default:
                 break;
