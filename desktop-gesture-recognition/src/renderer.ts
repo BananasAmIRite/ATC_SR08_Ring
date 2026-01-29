@@ -31,13 +31,13 @@
 // console.log(
 //   '👋 This message is being logged by "renderer.ts", included via Vite',
 // );
-import { connectToBLE, disconnectFromBLE, setNtfHandler } from './lib/accelerometer/ble';
-import { clearAccelPlot, initAccelChart, plotAccelData } from './lib/plot';
-import MLRecorder from './lib/accelerometer/MLRecorder';
+import { connectToBLE, disconnectFromBLE, setNtfHandler } from './lib/shared/accelerometer/ble';
+import { clearAccelPlot, initAccelChart, plotAccelData } from './lib/shared/plot';
+import ClassificationMLRecorder from './lib/classify/ClassificationMLRecorder';
 
 initAccelChart('accel-chart');
 
-const recorder = new MLRecorder();
+const recorder = new ClassificationMLRecorder();
 const handlers = recorder.getMLRecorderNtfHandler();
 
 const connectBtn = document.getElementById('connect') as HTMLButtonElement;
@@ -132,17 +132,6 @@ function handleClassificationResult(result: any) {
     displayClassificationResult(result);
 }
 
-displayClassificationResult([
-    {
-        label: 'a',
-        confidence: 1,
-    },
-    {
-        label: 'b',
-        confidence: 0.25,
-    },
-]);
-
 // Utility to display classification result
 function displayClassificationResult(result: any) {
     let pre = document.getElementById('ml-classify-result') as HTMLPreElement;
@@ -175,3 +164,4 @@ function displayClassificationResult(result: any) {
 }
 
 recorder.setClassifyHandler((d) => handleClassificationResult(d));
+// (renderer.ts is now split; see classify-renderer.ts and trainer-renderer.ts)

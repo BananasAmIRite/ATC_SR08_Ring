@@ -1,9 +1,9 @@
-import { separateGravityAndLinearAccel } from '../ml/filters';
-import { prepareClassificationData, prepareTrainingData } from '../ml/preprocessing';
-import { AccelDataPoint } from '../plot';
-import { AccelNtfHandler } from './ble';
+import { separateGravityAndLinearAccel } from '../shared/ml/filters';
+import { prepareClassificationData } from '../shared/ml/preprocessing';
+import { AccelDataPoint } from '../shared/plot';
+import { AccelNtfHandler } from '../shared/accelerometer/ble';
 
-export default class DataRecorder {
+export default class ClassificationMLRecorder {
     // RAW accel data (needs to be processed)
     private datapoints: AccelDataPoint[] = [];
     private neuralNet!: ml5.NeuralNetwork;
