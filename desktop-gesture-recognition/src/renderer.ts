@@ -40,19 +40,34 @@ initAccelChart('accel-chart');
 const recorder = new MLRecorder();
 const handlers = recorder.getMLRecorderNtfHandler();
 
-const connectBtn = document.getElementById('connect');
-const disconnectBtn = document.getElementById('disconnect');
-const plotBtn = document.getElementById('plot');
-const stopPlotBtn = document.getElementById('stop-plot');
-// const clearPlotBtn = document.getElementById('clear-plot');
+const connectBtn = document.getElementById('connect') as HTMLButtonElement;
+const disconnectBtn = document.getElementById('disconnect') as HTMLButtonElement;
+const plotBtn = document.getElementById('plot') as HTMLButtonElement;
+const stopPlotBtn = document.getElementById('stop-plot') as HTMLButtonElement;
 const loadModelBtn = document.getElementById('load-model') as HTMLButtonElement;
+
+let isConnected = false;
+let isModelLoaded = false;
+
+function updateButtonStates() {
+    connectBtn.disabled = isConnected;
+    disconnectBtn.disabled = !isConnected;
+    plotBtn.disabled = !(isConnected && isModelLoaded);
+    stopPlotBtn.disabled = !(isConnected && isModelLoaded);
+}
+
+updateButtonStates();
 
 connectBtn?.addEventListener('click', () => {
     connectToBLE();
+    isConnected = true;
+    updateButtonStates();
 });
 
 disconnectBtn?.addEventListener('click', () => {
     disconnectFromBLE();
+    isConnected = false;
+    updateButtonStates();
 });
 
 plotBtn?.addEventListener('click', () => {
@@ -61,24 +76,27 @@ plotBtn?.addEventListener('click', () => {
         plotAccelData(a);
         handlers.ntfHandler(a);
     });
+    plotBtn.disabled = true;
+    stopPlotBtn.disabled = false;
 });
 
 stopPlotBtn?.addEventListener('click', () => {
     setNtfHandler((a) => {});
+    plotBtn.disabled = false;
+    stopPlotBtn.disabled = true;
 });
 
 loadModelBtn?.addEventListener('click', () => {
-    console.log('inputting?');
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-
     input.onchange = (e: any) => {
         var files = e.target.files;
-
-        recorder.loadModel(files);
+        recorder.loadModel(files).then(() => {
+            isModelLoaded = true;
+            updateButtonStates();
+        });
     };
-
     input.click();
 });
 
@@ -114,6 +132,17 @@ function handleClassificationResult(result: any) {
     displayClassificationResult(result);
 }
 
+displayClassificationResult([
+    {
+        label: 'a',
+        confidence: 1,
+    },
+    {
+        label: 'b',
+        confidence: 0.25,
+    },
+]);
+
 // Utility to display classification result
 function displayClassificationResult(result: any) {
     let pre = document.getElementById('ml-classify-result') as HTMLPreElement;
@@ -122,16 +151,23 @@ function displayClassificationResult(result: any) {
         pre.id = 'ml-classify-result';
         document.body.appendChild(pre);
     }
-    // If result is an array of objects with label/confidence, display sorted and bold top
+    // Modern Bootstrap progress bar display for results (no sorting)
     if (Array.isArray(result) && result.length && result[0].label && result[0].confidence !== undefined) {
-        const sorted = [...result].sort((a, b) => b.confidence - a.confidence);
-        let html = 'Classification Result:\n';
-        sorted.forEach((item, idx) => {
-            const line = `${item.label}: ${(item.confidence * 100).toFixed(1)}%`;
-            html += idx === 0 ? `**${line}**\n` : `${line}\n`;
+        let html = '';
+        result.forEach((item, idx) => {
+            const percent = (item.confidence * 100).toFixed(1);
+            html += `
+                    <div class="d-flex align-items-center ">
+                        <span class="fw-semibold">${item.label}</span>
+                        <div class="progress flex-grow-1 bg-dark mx-2" style="height: 1.1em; min-width: 80px;">
+                            <div class="progress-bar ${idx === 0 ? 'bg-primary' : 'bg-secondary'}" role="progressbar" style="width: ${percent}%" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <span class="small" style="min-width: 48px; text-align: right;">${percent}%</span>
+                    </div>
+            `;
         });
-        // Render bold using <b> in a <pre> (works in most browsers)
-        pre.innerHTML = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        // html += '</div>';
+        pre.innerHTML = html;
     } else {
         pre.textContent =
             typeof result === 'string' ? result : `Classification Result:\n${JSON.stringify(result, null, 2)}`;
