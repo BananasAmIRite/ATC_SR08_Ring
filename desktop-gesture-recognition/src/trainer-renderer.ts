@@ -1,12 +1,13 @@
 // trainer-renderer.ts
 // Placeholder for training workflow logic
 import { connectToBLE, disconnectFromBLE, setNtfHandler } from './lib/shared/accelerometer/ble';
-import { clearAccelPlot, initAccelChart, plotAccelData } from './lib/shared/plot';
+import { AccelChart } from './lib/shared/plot';
 import MLRecorder from './lib/train/TrainingMLRecorder';
 
 const trainPage = document.getElementById('page-train');
 if (trainPage) {
-    initAccelChart('train-accel-chart');
+    const chart = new AccelChart('train-accel-chart');
+    // initAccelChart('train-accel-chart');
 
     const recorder = new MLRecorder();
     const handlers = recorder.getMLRecorderNtfHandler();
@@ -30,10 +31,10 @@ if (trainPage) {
     });
 
     plotBtn?.addEventListener('click', () => {
-        clearAccelPlot();
+        chart.clear();
         handlers.start();
         setNtfHandler((a) => {
-            plotAccelData(a);
+            chart.plot(a);
             handlers.ntfHandler(a);
         });
         recorder.setCurrentLabel(mlLabelInput.value);

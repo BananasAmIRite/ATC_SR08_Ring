@@ -68,15 +68,15 @@ export function prepareData(d: AccelDataPoint[], resampleSize: number): number[]
     return flattenData(normalizeAccelData(resampleAccelData(d, resampleSize)));
 }
 
-export type RingOrientationType = 'world-order' | 'ring-order';
+export type RingOrientationType = 'world-order' | 'ring-order' | 'ring-and-world-order';
 
 export function prepareTrainingData(
     datapoints: { data: AccelDataPoint[]; label: string }[],
     resampleSize: number,
     type: RingOrientationType,
 ): { data: number[]; label: string }[] {
-    // world order converts ring data into world frame FIRST, then augments z rotation so that the ring's training is fully orientation-independent
     if (type == 'world-order') {
+        // world order converts ring data into world frame FIRST, then augments z rotation so that the ring's training is fully orientation-independent
         const worldData = datapoints.map((e) => ({
             label: e.label,
             data: toWorldFrame(separateGravityAndLinearAccel(e.data, 0.8)),
@@ -94,7 +94,7 @@ export function prepareTrainingData(
         }));
 
         return preppedData;
-    } else {
+    } else if (type == 'ring-order') {
         // ring order augments the linear component by x rotation (principle ring axis) so that all orientations of acceleration in the y-z plane (the plane of the ring) are accounted for, then converts into world frame to be trained on.
         // this makes it so the rotation of the ring inside its plane doesn't matter, but the world orientation does matter
         const linearData = datapoints.map((e) => ({
@@ -120,6 +120,34 @@ export function prepareTrainingData(
         }));
 
         return preppedData;
+    } else if (type == 'ring-and-world-order') {
+        // First augment by ring-order (x rotation)
+        const linearData = datapoints.map((e) => ({
+            label: e.label,
+            data: separateGravityAndLinearAccel(e.data, 0.8),
+        }));
+        const augmentedByX = linearData.flatMap((e) =>
+            augmentByXRotation(e.data.linear, 8).map((a) => ({
+                label: e.label,
+                data: { gravity: e.data.gravity, linear: a },
+            })),
+        );
+        // Convert to world frame
+        const worldFrame = augmentedByX.map((e) => ({
+            label: e.label,
+            data: toWorldFrame(e.data),
+        }));
+        // Augment by world-order (z rotation in world frame)
+        const augmentedByZ = worldFrame.flatMap((e) =>
+            augmentByZRotation(e.data, 8).map((a) => ({ label: e.label, data: a })),
+        );
+        const preppedData = augmentedByZ.map((e) => ({
+            data: prepareData(e.data, resampleSize),
+            label: e.label,
+        }));
+        return preppedData;
+    } else {
+        throw new Error('Unknown RingOrientationType');
     }
 }
 

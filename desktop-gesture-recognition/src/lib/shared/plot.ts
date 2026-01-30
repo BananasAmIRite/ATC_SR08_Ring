@@ -7,78 +7,81 @@ export type AccelDataPoint = {
     timestamp: string;
 };
 
-let accelChart: Chart | null = null;
-let chartData: AccelDataPoint[] = [];
+export class AccelChart {
+    private chart: Chart | null = null;
+    private chartData: AccelDataPoint[] = [];
+    private canvasId: string;
 
-export function initAccelChart(canvasId: string) {
-    const ctx = (document.getElementById(canvasId) as HTMLCanvasElement).getContext('2d');
-    if (!ctx) throw new Error('Canvas not found');
-
-    accelChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'X',
-                    data: [],
-                    borderColor: '#e53e3e',
-                    fill: false,
-                },
-                {
-                    label: 'Y',
-                    data: [],
-                    borderColor: '#3182ce',
-                    fill: false,
-                },
-                {
-                    label: 'Z',
-                    data: [],
-                    borderColor: '#38a169',
-                    fill: false,
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            animation: false,
-            scales: {
-                x: {
-                    title: { display: true, text: 'Timestamp' },
-                },
-                y: {
-                    title: { display: true, text: 'Acceleration (g)' },
-                },
-            },
-        },
-    });
-}
-
-export function plotAccelData(data: AccelDataPoint) {
-    chartData.push(data);
-    if (!accelChart) return;
-
-    // Add timestamp label
-    accelChart.data.labels?.push(data.timestamp);
-    // Add data to each axis
-    accelChart.data.datasets[0].data.push(data.x);
-    accelChart.data.datasets[1].data.push(data.y);
-    accelChart.data.datasets[2].data.push(data.z);
-
-    // Limit to last 100 points
-    if (chartData.length > 100) {
-        chartData.shift();
-        accelChart.data.labels?.shift();
-        accelChart.data.datasets.forEach((ds) => ds.data.shift());
+    constructor(canvasId: string) {
+        this.canvasId = canvasId;
+        this.init();
     }
 
-    accelChart.update();
-}
+    private init() {
+        const ctx = (document.getElementById(this.canvasId) as HTMLCanvasElement)?.getContext('2d');
+        if (!ctx) throw new Error('Canvas not found');
 
-export function clearAccelPlot() {
-    chartData = [];
-    if (!accelChart) return;
-    accelChart.data.labels = [];
-    accelChart.data.datasets.forEach((ds) => (ds.data = []));
-    accelChart.update();
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'X',
+                        data: [],
+                        borderColor: '#e53e3e',
+                        fill: false,
+                    },
+                    {
+                        label: 'Y',
+                        data: [],
+                        borderColor: '#3182ce',
+                        fill: false,
+                    },
+                    {
+                        label: 'Z',
+                        data: [],
+                        borderColor: '#38a169',
+                        fill: false,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                animation: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Timestamp' },
+                    },
+                    y: {
+                        title: { display: true, text: 'Acceleration (g)' },
+                    },
+                },
+            },
+        });
+    }
+
+    plot(data: AccelDataPoint) {
+        this.chartData.push(data);
+        if (!this.chart) return;
+        this.chart.data.labels?.push(data.timestamp);
+        this.chart.data.datasets[0].data.push(data.x);
+        this.chart.data.datasets[1].data.push(data.y);
+        this.chart.data.datasets[2].data.push(data.z);
+        // Limit to last 100 points
+        if (this.chartData.length > 100) {
+            this.chartData.shift();
+            this.chart.data.labels?.shift();
+            this.chart.data.datasets.forEach((ds) => ds.data.shift());
+        }
+        this.chart.update();
+    }
+
+    clear() {
+        this.chartData = [];
+        if (!this.chart) return;
+        this.chart.data.labels = [];
+        this.chart.data.datasets.forEach((ds) => (ds.data = []));
+        this.chart.update();
+    }
 }

@@ -3,6 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import SoundMixer, { Device } from 'native-sound-mixer';
 import { load, alias } from 'koffi';
+import { rotateToAlignGravity } from './lib/shared/ml/filters';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -88,6 +89,21 @@ const createWindow = () => {
 
     // Open the DevTools.
     // mainWindow.webContents.openDevTools();
+
+    console.log(
+        rotateToAlignGravity(
+            {
+                x: 1,
+                y: 0,
+                z: 0,
+            },
+            {
+                x: -2.3,
+                y: 1.24,
+                z: 2.13,
+            },
+        ),
+    );
 };
 
 // This method will be called when Electron has finished

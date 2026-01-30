@@ -22,7 +22,10 @@ function dot(a: { x: number; y: number; z: number }, b: { x: number; y: number; 
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-function rotateToAlignGravity(vec: { x: number; y: number; z: number }, gravity: { x: number; y: number; z: number }) {
+export function rotateToAlignGravity(
+    vec: { x: number; y: number; z: number },
+    gravity: { x: number; y: number; z: number },
+) {
     // Rotate so gravity aligns with (0,0,-1)
     const gNorm = normalize(gravity);
     const target = { x: 0, y: 0, z: -1 };

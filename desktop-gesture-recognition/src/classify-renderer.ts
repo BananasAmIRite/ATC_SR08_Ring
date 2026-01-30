@@ -1,15 +1,72 @@
 import { connectToBLE, disconnectFromBLE, setNtfHandler } from './lib/shared/accelerometer/ble';
-import { clearAccelPlot, initAccelChart, plotAccelData } from './lib/shared/plot';
-import ClassificationMLRecorder from './lib/classify/ClassificationMLRecorder';
-import { debounce } from './lib/utils';
+import { AccelChart } from './lib/shared/plot';
+import ClassificationMLRecorder, { ClassifyHandlerData } from './lib/classify/ClassificationMLRecorder';
+import { GestureHandler } from './lib/classify/GestureHandler';
 
 // Only initialize if classify page is present
 const classifyPage = document.getElementById('page-classify');
 if (classifyPage) {
-    initAccelChart('classify-accel-chart');
+    const chart = new AccelChart('classify-accel-chart');
 
     const recorder = new ClassificationMLRecorder();
     const handlers = recorder.getMLRecorderNtfHandler();
+
+    // Initialize GestureHandler with registered gestures
+    const gestureHandler = new GestureHandler();
+
+    // Register gestures with their configurations
+    gestureHandler.registerGesture('circle-cw', {
+        mode: 'continuous',
+        cooldownMs: 100, // Rate limit volume changes
+        minConfidence: 0.7,
+        onTrigger: () => {
+            window.electronAPI.incrementSystemVolume(0.03);
+        },
+        onEnd: () => {
+            console.log('Circle CW gesture ended');
+        },
+    });
+
+    gestureHandler.registerGesture('circle-ccw', {
+        mode: 'continuous',
+        cooldownMs: 100,
+        minConfidence: 0.7,
+        onTrigger: () => {
+            window.electronAPI.incrementSystemVolume(-0.03);
+        },
+        onEnd: () => {
+            console.log('Circle CCW gesture ended');
+        },
+    });
+
+    gestureHandler.registerGesture('horiz-tap', {
+        mode: 'discrete',
+        cooldownMs: 500, // Prevent accidental double-taps
+        minConfidence: 0.85, // Higher threshold for discrete actions
+        onTrigger: () => {
+            console.log('horiz tap');
+            window.electronAPI.minimizeForegroundWindow();
+        },
+    });
+
+    gestureHandler.registerGesture('vert-tap', {
+        mode: 'discrete',
+        cooldownMs: 500,
+        minConfidence: 0.85,
+        onTrigger: () => {
+            window.electronAPI.maximizeForegroundWindow();
+        },
+    });
+
+    // Register idle to reset state when no gesture detected
+    gestureHandler.registerGesture('idle', {
+        mode: 'discrete',
+        cooldownMs: 0,
+        minConfidence: 0,
+        onTrigger: () => {
+            gestureHandler.handleIdle();
+        },
+    });
 
     const connectBtn = document.getElementById('classify-connect') as HTMLButtonElement;
     const disconnectBtn = document.getElementById('classify-disconnect') as HTMLButtonElement;
@@ -30,21 +87,23 @@ if (classifyPage) {
     updateButtonStates();
 
     connectBtn?.addEventListener('click', () => {
-        connectToBLE();
-        isConnected = true;
-        updateButtonStates();
+        connectToBLE().then(() => {
+            isConnected = true;
+            updateButtonStates();
+        });
     });
 
     disconnectBtn?.addEventListener('click', () => {
-        disconnectFromBLE();
-        isConnected = false;
-        updateButtonStates();
+        disconnectFromBLE().then(() => {
+            isConnected = false;
+            updateButtonStates();
+        });
     });
 
     plotBtn?.addEventListener('click', () => {
-        clearAccelPlot();
+        chart.clear();
         setNtfHandler((a) => {
-            plotAccelData(a);
+            chart.plot(a);
             handlers.ntfHandler(a);
         });
         plotBtn.disabled = true;
@@ -71,36 +130,14 @@ if (classifyPage) {
         input.click();
     });
 
-    const CLASSIFICATION_CONFIDENCE_THRES = 0.8;
+    function handleClassificationResult({ results, segment }: ClassifyHandlerData) {
+        if (!results || results.length === 0) return;
 
-    function handleClassificationResult(result: any) {
-        if (result.length == 0) throw new Error('No classification results');
+        // Pass to gesture handler for validation and action triggering
+        gestureHandler.handleClassification(results, segment);
 
-        const sorted = [...result].sort((a, b) => b.confidence - a.confidence);
-
-        const firstLabel = sorted[0].label;
-        const firstConf = sorted[0].confidence;
-
-        if (firstConf >= CLASSIFICATION_CONFIDENCE_THRES) {
-            switch (firstLabel) {
-                case 'circle-cw':
-                    window.electronAPI.incrementSystemVolume(3);
-                    break;
-                case 'circle-ccw':
-                    window.electronAPI.incrementSystemVolume(-3);
-                    break;
-                case 'horiz-tap':
-                    debounce(1)(() => window.electronAPI.minimizeForegroundWindow());
-                    break;
-                case 'vert-tap':
-                    debounce(1)(() => window.electronAPI.maximizeForegroundWindow());
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        displayClassificationResult(result);
+        // Display results for debugging
+        displayClassificationResult(results);
     }
 
     // Utility to display classification result
@@ -121,10 +158,20 @@ if (classifyPage) {
             }
         }
 
+        // Show active gesture status
+        const activeGesture = gestureHandler.getActiveGesture();
+        const activeDuration = gestureHandler.getActiveGestureDuration();
+
         // Modern Bootstrap progress bar display for results (no sorting)
         if (Array.isArray(result) && result.length && result[0].label && result[0].confidence !== undefined) {
             // Do not sort, use original order
             let html = '';
+
+            // Show active gesture indicator if present
+            if (activeGesture) {
+                html += `<div class="alert alert-success py-1 mb-2">Active: <strong>${activeGesture}</strong> (${(activeDuration / 1000).toFixed(1)}s)</div>`;
+            }
+
             result.forEach((item, idx) => {
                 const isMax = item.label === maxLabel;
                 const percent = (item.confidence * 100).toFixed(1);
