@@ -34,5 +34,4 @@
 #ifndef _DA14585_CONFIG_BASIC_H_
 #define _DA14585_CONFIG_BASIC_H_
 
-
 #endif // _DA14585_CONFIG_BASIC_H_

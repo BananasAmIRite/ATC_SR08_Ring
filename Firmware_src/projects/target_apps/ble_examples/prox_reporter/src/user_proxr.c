@@ -1,4 +1,3 @@
-
 #include "rwip_config.h"
 #include "gattc_task.h"
 #include "gapc_task.h"
@@ -28,16 +27,16 @@
 
 #include "user_config.h"
 
+#include "leds.h"
+
+#include "./accelerometer/accelerometer.h"
+#include "custs1_task.h"
+#include "user_custs1_impl.h"
+
+
 #if defined(__IS_SDK6_COMPILER_GCC__) && !defined(__clang__)
 #pragma message("Please note that SDK6 GCC support will be deprecated in the next SDK6 release")
 #endif
-
-
-typedef struct led_gpios
-{
-        GPIO_PORT port;
-        GPIO_PIN pin;
-}led_gpios;
 
 static led_gpios theLedGpiosLow[] = {
         {GPIO_PORT_2, GPIO_PIN_1},
@@ -59,7 +58,6 @@ static led_gpios theLedGpiosHigh[] = {
 };
 
 
-const uint8_t numbers[] = {0x77,0x24,0x5D,0x6D,0x2E,0x6B,0x7B,0x25,0x7F,0x6F,0x3F,0x3A,0x53,0x7C,0x5B,0x1B};
 
 uint8_t LED_Buffer[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
 
@@ -69,8 +67,36 @@ uint8_t current_line = 0;
 uint32_t realUnix = 0;
 uint32_t lastTime = 0;
 
+uint32_t led_value = 0;
+
 uint8_t LED_Display_state = 0;
 uint32_t turnOnTime = 0;
+
+uint8_t whoami_res = 0; 
+
+
+accel_sensitivity_t sens; 
+
+static timer_hnd main_timer_hnd = EASY_TIMER_INVALID_TIMER; 
+
+bool btn_send_enabled = false; 
+
+typedef enum {
+    DEFAULT,
+    ACCEL_INIT,
+    ACCEL_CONFIG, 
+    ACCEL_SENS, 
+    WHOAMI, 
+    DISP_INFO, 
+    BT_INIT, 
+    BT_NOTIF, 
+    NUM_STATES
+} user_state_t;
+
+uint8_t user_state = 0;
+bool user_run = false;  
+
+bool has_timer_started = false; 
 
 void calcTime()
 {
@@ -95,43 +121,23 @@ void LED_GPIO_mode(uint8_t mode)
                         LED_Display_state = 1;
                         calcTime();
                         turnOnTime = realUnix;
-                        for (int i = 0; i < (sizeof(theLedGpiosLow)/sizeof(led_gpios)); ++i )
-                                GPIO_ConfigurePin(theLedGpiosLow[i].port, theLedGpiosLow[i].pin, OUTPUT, PID_GPIO, 0);
-                        for (int i = 0; i < (sizeof(theLedGpiosHigh)/sizeof(led_gpios)); ++i )
-                                GPIO_ConfigurePin(theLedGpiosHigh[i].port, theLedGpiosHigh[i].pin, OUTPUT, PID_GPIO, 1);
+                        LED_Pin_Config(true);
                         // Here we enable the Timer
                         arch_force_active_mode();
                         timer0_enable_irq();
                         timer0_start();
                 }
-        }else{
+        } else {
                 if(LED_Display_state != 0)
                 {
                         LED_Display_state = 0;
-                        for (int i = 0; i < (sizeof(theLedGpiosLow)/sizeof(led_gpios)); ++i )
-                                GPIO_ConfigurePin(theLedGpiosLow[i].port, theLedGpiosLow[i].pin, INPUT_PULLDOWN, PID_GPIO, 0);
-                        for (int i = 0; i < (sizeof(theLedGpiosHigh)/sizeof(led_gpios)); ++i )
-                                GPIO_ConfigurePin(theLedGpiosHigh[i].port, theLedGpiosHigh[i].pin, INPUT_PULLDOWN, PID_GPIO, 1);
+                        LED_Pin_Config(false);
                         // Here we disable the Timer
                         timer0_disable_irq();
                         timer0_stop();
                         arch_restore_sleep_mode();
                 }
         }
-}
-
-void LED_Buff_setInt(uint32_t inputNum, unsigned char *LED_Buf, int lenInt) {
-    uint8_t v19[5] = {0};
-    int i;
-    uint32_t v4 = 1;
-    if (lenInt > 5) lenInt = 5;
-    for (i = lenInt - 1; i >= 0; i--) {
-        v19[i] = (inputNum / v4) % 10;
-        v4 *= 10;
-    }
-    for (i = 0; i < lenInt; i++) {
-        LED_Buf[i] = numbers[v19[i]];
-    }
 }
 
 void refreshMenu()
@@ -142,41 +148,158 @@ void refreshMenu()
         LED_Buff_setInt((realUnix % 3600) / 60, &LED_Buffer[3], 2);
         if((counter_time%2)==0)
                 LED_Buffer[2] = 0x48;*/
-        LED_Buff_setInt(lld_evt_time_get()/100, LED_Buffer, 5);
+
+        // uint8_t whoami = accel_cmd_whoami();
+
+        LED_Buff_setInt(led_value, LED_Buffer, 5);
 }
 
 static void timer_cb(void)
 {
-        if(LED_Display_state){
-                GPIO_SetActive( theLedGpiosHigh[current_line].port, theLedGpiosHigh[current_line].pin );
-                current_line++;
-                current_line%=6;
-                if(current_line == 0)
-                {
-                        counter_ms++;
-                        if(counter_ms >=55)// every 495ms
-                        {
-                                counter_ms = 0;
-                                counter_time++;
-                                arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
-                                //if(realUnix - turnOnTime >= 10)
-                                 //       LED_GPIO_mode(0);
+    // static uint8_t accel_counter = 0; 
 
-                        }
-                        memset(LED_Buffer,0x00,sizeof(LED_Buffer));
-                        refreshMenu();
+    if(LED_Display_state) {
+        // on each timer callback, swap LED lines so that each line is written to
+        // after each line has been written to, refresh the menu
+            current_line++;
+            current_line%=6;
+            if(current_line == 0)
+            {
+                    counter_ms++;
+                    if(counter_ms >=55)// every 495ms
+                    {
+                        counter_ms = 0;
+                        counter_time++;
+                        arch_printf("Time %i MS: %i\r\n", realUnix, lld_evt_time_get());
+                        //if(realUnix - turnOnTime >= 10)
+                            //       LED_GPIO_mode(0);
+                    }
+                    memset(LED_Buffer,0x00,sizeof(LED_Buffer));
+                    refreshMenu();
+            }
 
-                }
-                for(int i =0;i<7;i++)
-                {
-                        if((LED_Buffer[current_line] >> i) & 1)
-                               GPIO_SetActive( theLedGpiosLow[i].port, theLedGpiosLow[i].pin );
-                        else
-                               GPIO_SetInactive( theLedGpiosLow[i].port, theLedGpiosLow[i].pin );
-                }
-                GPIO_SetInactive( theLedGpiosHigh[current_line].port, theLedGpiosHigh[current_line].pin );
-        }
+            LED_write(LED_Buffer, current_line);
+    }
 }
+
+static void main_timer_cb(void) {
+
+    if (!user_run) {
+        start_main_timer();
+        return; 
+    }
+
+    if (user_state == DEFAULT) {
+        // default nothing state
+        LED_GPIO_mode(0);
+        user_run = false; 
+    } else if (user_state == ACCEL_INIT) {
+        LED_GPIO_mode(1);
+        bool val = accel_init(); 
+
+        if (val) {
+            led_value = 1;
+        } else {
+            led_value = 11; 
+        } 
+        
+        // stop after running once
+        user_run = false; 
+    } else if (user_state == ACCEL_CONFIG) {
+        LED_GPIO_mode(1);
+
+        bool val = accel_config(); 
+
+        bool out = accel_cmd_set_sensitivity(SENS_16G);
+     
+        led_value = out; 
+
+        btn_send_enabled = true; 
+        
+        // if (val) {
+        //     led_value = 100; 
+        // } else {
+        //     led_value = 9; 
+        // }
+        
+        user_run = false; 
+    } else if (user_state == ACCEL_SENS) {
+
+        accel_cmd_get_sensitivity(&sens); 
+
+        led_value = sens; 
+        user_run = false; 
+    } else if (user_state == WHOAMI) {
+        // user_run = false;
+        LED_GPIO_mode(1); 
+        uint8_t whoami_out = accel_cmd_whoami(); 
+        
+        led_value = whoami_out; 
+
+        user_run = false; 
+    } else if (user_state == DISP_INFO) {
+        // led_value = 1; 
+        LED_GPIO_mode(1);
+
+        accel_data_t data; 
+
+        bool out = accel_cmd_readaccel(&data); 
+
+        accel_convert_to_mg(&data, sens); 
+
+        led_value = abs(data.y); 
+        // led_value = out; 
+        // user_run = false; 
+    } else if (user_state == BT_INIT) {
+        
+        // // Skip accelerometer reads - just send test data
+        // accel_data_t data; 
+        // accel_cmd_readaccel(&data); 
+        // accel_convert_to_mg(&data, sens); 
+
+        // #if (BLE_CUSTOM1_SERVER)
+        //     uint8_t out = update_accel_data(&data);
+        //     led_value = out; 
+        // #endif
+
+        LED_GPIO_mode(0); 
+        arch_force_active_mode();
+        
+        // Reinitialize and reconfigure accelerometer in case it was powered down during sleep
+        accel_init();
+        accel_config();
+
+        
+        led_value = 127; // Display x-axis value
+        
+        user_run = false; 
+        // user_run = true;
+    } else if (user_state == BT_NOTIF) {
+        // Force active mode to prevent sleep from powering down I2C peripheral
+
+        
+        // Read accelerometer data
+        accel_data_t data;
+        accel_cmd_readaccel(&data);
+        // accel_convert_to_mg(&data, sens);
+
+        #if (BLE_CUSTOM1_SERVER)
+            update_accel_data(&sens, &data); // Send real accelerometer data
+            notify_accel_data(&sens, &data); // notify corresponding devices
+        #endif
+        
+        
+        user_run = true; // Continuous updates
+    } else {
+        // Restore sleep mode after operations complete
+        arch_restore_sleep_mode();
+        // stop running if invalid state
+        user_run = false; 
+    }
+
+    start_main_timer();
+}
+
 
 void start_refresh_timer(void)
 {
@@ -193,6 +316,12 @@ void start_refresh_timer(void)
         // reload value for 100ms (T = 1/200kHz * RELOAD_100MS = 0,000005 * 20000 = 100ms)
         timer0_set_pwm_on_counter(300);
         timer0_register_callback(timer_cb);
+}
+
+void start_main_timer(void) {
+    // Timer interval in 10ms units (50 = 500ms, 10 = 100ms, 5 = 50ms)
+    // Safe range: 5-10 (50-100ms) for 10-20Hz update rate
+    main_timer_hnd = app_easy_timer(10, main_timer_cb); // 50ms = 20Hz
 }
 
 static void app_wakeup_cb(void)
@@ -220,13 +349,13 @@ static void app_resume_system_from_sleep(void)
     }
 }
 
-
 void user_app_on_init(void)
 {
 
      default_app_on_init();
+    //  start_main_timer();
      arch_printf("Booted now\r\n");
-     LED_GPIO_mode(1);
+     LED_GPIO_mode(0);
 }
 
 static void app_button_press_cb(void)
@@ -234,14 +363,26 @@ static void app_button_press_cb(void)
     app_resume_system_from_sleep();
 
     app_button_enable();
-    if(GPIO_GetPinStatus(GPIO_BUTTON_PORT, GPIO_BUTTON_PIN))
-            return;
+
+    bool pin_val = GPIO_GetPinStatus(GPIO_BUTTON_PORT, GPIO_BUTTON_PIN);
+    #if (BLE_CUSTOM1_SERVER)
+        if (btn_send_enabled) {
+            update_btn_data(pin_val); 
+            notify_btn_data(pin_val);
+        }
+    #endif 
+
+    if (pin_val)
+            return; // only set pressed when button goes from pressed to not pressed
     arch_printf("Button was just pressed\r\n");
-    if(LED_Display_state){
-            LED_GPIO_mode(0);
-    }else{
-            LED_GPIO_mode(1);
+
+    if (user_state == DEFAULT && !has_timer_started) {
+        has_timer_started = true; 
+        start_main_timer(); 
     }
+
+    user_state = (user_state + 1) % NUM_STATES;
+    user_run = true; 
 }
 
 void app_button_enable(void)
@@ -291,6 +432,11 @@ void user_app_on_disconnect(struct gapc_disconnect_ind const *param)
     arch_printf("BLE Disconnected\r\n");
     default_app_on_disconnect(NULL);
 
+    // if (main_timer_hnd != EASY_TIMER_INVALID_TIMER) {
+    //     app_easy_timer_cancel(main_timer_hnd);
+    //     main_timer_hnd = EASY_TIMER_INVALID_TIMER;
+    // }
+
 #if (BLE_BATT_SERVER)
     app_batt_poll_stop();
 #endif
@@ -306,6 +452,7 @@ void user_app_on_disconnect(struct gapc_disconnect_ind const *param)
         platform_reset(RESET_AFTER_SUOTA_UPDATE);
     }
 #endif
+
 }
 
 void user_app_on_connect(uint8_t conidx, struct gapc_connection_req_ind const *param)
@@ -343,6 +490,14 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             cfm->handle = ind->handle;
             KE_MSG_SEND(cfm);
         } break;
+
+        #if (BLE_CUSTOM1_SERVER)
+        case CUSTS1_VAL_WRITE_IND:
+        {
+            struct custs1_val_write_ind const *ind = (struct custs1_val_write_ind const *)param;
+            user_custs1_wr_ind_handler(msgid, ind, dest_id, src_id);
+        } break;
+        #endif
 
         default:
             break;

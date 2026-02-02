@@ -9,7 +9,23 @@
         "winapifamily.h": "c",
         "stdint.h": "c",
         "user_config.h": "c",
-        "app_suotar.h": "c"
+        "app_suotar.h": "c",
+        "gatt.h": "c",
+        "co_utils.h": "c",
+        "att.h": "c",
+        "rwip_config.h": "c",
+        "app.h": "c",
+        "arch_api.h": "c",
+        "gattm_task.h": "c",
+        "accelerometer.h": "c",
+        "leds.h": "c",
+        "timer0.h": "c",
+        "math.h": "c",
+        "accel_service.h": "c",
+        "ke_task.h": "c",
+        "attm.h": "c",
+        "arch_console.h": "c",
+        "attm_db.h": "c"
     },
     "C_Cpp.default.compilerPath": "c:\\Program Files (x86)\\Arm GNU Toolchain arm-none-eabi\\11.3 rel1\\bin\\arm-none-eabi-gcc.exe"
 }
