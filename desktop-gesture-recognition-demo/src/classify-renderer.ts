@@ -101,15 +101,19 @@ if (classifyPage) {
                 updateButtonStates();
             });
         } else {
-            connectToBLE().then(() => {
-                isConnected = true;
+            connectToBLE()
+                .then(() => {
+                    isConnected = true;
 
-                setNtfHandler((a) => {
-                    chart.plot(a);
-                    handlers.ntfHandler(a);
+                    setNtfHandler((a) => {
+                        chart.plot(a);
+                        handlers.ntfHandler(a);
+                    });
+                    updateButtonStates();
+                })
+                .catch((error) => {
+                    console.error('Error connecting to device:', error);
                 });
-                updateButtonStates();
-            });
         }
     });
 

@@ -67,62 +67,61 @@ function handleButtonNotification(event: any) {
 }
 
 export async function connectToBLE() {
-    try {
-        if (!navigator.bluetooth) {
-            console.error('Web Bluetooth API is not supported in this browser');
-            alert('Web Bluetooth API is not supported in this browser');
-            return;
-        }
-
-        console.log('Requesting Bluetooth devices...');
-        device = await navigator.bluetooth.requestDevice({
-            // acceptAllDevices: true,
-            filters: [{ name: 'TEST' }],
-            optionalServices: [serviceUuid],
-        });
-
-        console.log('Selected device:', device.name || 'Unknown');
-        console.log('Device ID:', device.id);
-
-        if (!device.gatt) throw new Error('No GATT Server');
-
-        server = await device.gatt?.connect();
-        console.log('Connected to GATT server');
-
-        service = await server?.getPrimaryService(serviceUuid);
-        console.log('Service found:', service?.uuid);
-
-        characteristic = await service?.getCharacteristic(characteristicUuid);
-        console.log('Characteristic found:', characteristic?.uuid);
-
-        // Try to get accelerometer characteristic
-        try {
-            accelCharacteristic = await service?.getCharacteristic(accelCharacteristicUuid);
-            console.log('Accelerometer characteristic found:', accelCharacteristic?.uuid);
-        } catch (error) {
-            console.warn('Accelerometer characteristic not found:', error);
-            // accelCharacteristic = null;
-        }
-
-        // Subscribe to notifications
-        await accelCharacteristic.startNotifications();
-        console.log('Started accelerometer notifications');
-
-        // Add event listener for notifications
-        accelCharacteristic.addEventListener('characteristicvaluechanged', handleAccelNotification);
-
-        // try to get btn characteristic
-        btnCharacteristic = await service?.getCharacteristic(btnCharacteristicUuid);
-        console.log('Button characteristic found: ', btnCharacteristic?.uuid);
-
-        await btnCharacteristic.startNotifications();
-
-        btnCharacteristic.addEventListener('characteristicvaluechanged', handleButtonNotification);
-
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-    } catch (error) {
-        console.error('Error connecting to device:', error);
+    // try {
+    if (!navigator.bluetooth) {
+        console.error('Web Bluetooth API is not supported in this browser');
+        alert('Web Bluetooth API is not supported in this browser');
+        return;
     }
+
+    console.log('Requesting Bluetooth devices...');
+    device = await navigator.bluetooth.requestDevice({
+        // acceptAllDevices: true,
+        filters: [{ name: 'TEST' }],
+        optionalServices: [serviceUuid],
+    });
+
+    console.log('Selected device:', device.name || 'Unknown');
+    console.log('Device ID:', device.id);
+
+    if (!device.gatt) throw new Error('No GATT Server');
+
+    server = await device.gatt?.connect();
+    console.log('Connected to GATT server');
+
+    service = await server?.getPrimaryService(serviceUuid);
+    console.log('Service found:', service?.uuid);
+
+    characteristic = await service?.getCharacteristic(characteristicUuid);
+    console.log('Characteristic found:', characteristic?.uuid);
+
+    // Try to get accelerometer characteristic
+    try {
+        accelCharacteristic = await service?.getCharacteristic(accelCharacteristicUuid);
+        console.log('Accelerometer characteristic found:', accelCharacteristic?.uuid);
+    } catch (error) {
+        console.warn('Accelerometer characteristic not found:', error);
+        // accelCharacteristic = null;
+    }
+
+    // Subscribe to notifications
+    await accelCharacteristic.startNotifications();
+    console.log('Started accelerometer notifications');
+
+    // Add event listener for notifications
+    accelCharacteristic.addEventListener('characteristicvaluechanged', handleAccelNotification);
+
+    // try to get btn characteristic
+    btnCharacteristic = await service?.getCharacteristic(btnCharacteristicUuid);
+    console.log('Button characteristic found: ', btnCharacteristic?.uuid);
+
+    await btnCharacteristic.startNotifications();
+
+    btnCharacteristic.addEventListener('characteristicvaluechanged', handleButtonNotification);
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    // } catch (error) {
+    // }
 }
 
 export async function disconnectFromBLE() {
