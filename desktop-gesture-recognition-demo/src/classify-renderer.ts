@@ -207,7 +207,7 @@ if (classifyPage) {
 
         // Show active gesture indicator if present
         // if (activeGesture) {
-        html += `<div class="alert alert-success py-1 mb-2">Current Gesture: <strong>${label == 'circle-cw' ? 'Clockwise Circle' : label == 'circle-ccw' ? 'Counterclockwise Circle' : 'Idle'}</strong></div>`;
+        html += `<div class="alert alert-success py-1 mb-2">Current Gesture: <strong>${label == 'circle-cw' ? ' 🔊Clockwise Circle' : label == 'circle-ccw' ? ' 🔈Counterclockwise Circle' : 'Idle'}</strong></div>`;
         // }
 
         // result.forEach((item, idx) => {
