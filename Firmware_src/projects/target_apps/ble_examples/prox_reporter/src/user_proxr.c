@@ -91,9 +91,10 @@ typedef enum {
     // ACCEL_SENS, 
     // WHOAMI, 
     // DISP_INFO, 
-    BT_INIT, 
     
     FLUID_MODE, 
+    BT_INIT, 
+    
     BT_NOTIF, 
     NUM_STATES
 } user_state_t;

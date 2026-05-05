@@ -85,8 +85,11 @@ var sketch = function (p) {
             cosTheta = -accel.z / len;
             cosTheta = Math.max(-1, Math.min(1, cosTheta));
         }
-        let angle = Math.acos(cosTheta);
-        angle *= p.noise(p.frameCount / 300); // add a touch of randomness (kept from original)
+        let angle = -Math.asin(Math.max(-1, Math.min(1, accel.z)));
+
+        // Math.acos(cosTheta) +
+
+        // angle *= p.noise(p.frameCount / 300); // add a touch of randomness (kept from original)
 
         for (var i = 0; i < agentCount; i++) {
             if (drawMode == 1) {
@@ -101,7 +104,18 @@ var sketch = function (p) {
         p.fill(255);
         p.textSize(14);
         p.text(isBleConnected ? 'BLE connected' : 'Click to connect BLE', 30, 45);
-        p.text('x:' + accel.x.toFixed(3) + ' y:' + accel.y.toFixed(3) + ' z:' + accel.z.toFixed(3), 30, 65);
+        p.text(
+            'x:' +
+                accel.x.toFixed(3) +
+                ' y:' +
+                accel.y.toFixed(3) +
+                ' z:' +
+                accel.z.toFixed(3) +
+                ' angle: ' +
+                angle.toFixed(3),
+            30,
+            65,
+        );
     };
 
     // Web Bluetooth requires a user gesture.
