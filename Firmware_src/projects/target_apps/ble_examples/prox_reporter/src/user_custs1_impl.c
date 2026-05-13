@@ -215,7 +215,7 @@ uint8_t notify_accel_data(const accel_sensitivity_t* sens, const accel_data_t *a
     return 171; 
 }
 
-void update_btn_data(bool btn_pressed) {
+void update_btn_data(uint8_t btn_pressed) {
     
     // CRITICAL: Check if service is initialized first
     struct custs1_env_tag *custs1_env = PRF_ENV_GET(CUSTS1, custs1);
@@ -255,7 +255,7 @@ void update_btn_data(bool btn_pressed) {
     ke_msg_send(req);
 }
 
-void notify_btn_data(bool btn_pressed) {
+void notify_btn_data(uint8_t btn_pressed) {
 
     struct custs1_env_tag *custs1_env = PRF_ENV_GET(CUSTS1, custs1);
     if (custs1_env == NULL) {

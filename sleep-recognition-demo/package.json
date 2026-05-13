@@ -1,0 +1,31 @@
+{
+    "name": "gesture-recognition",
+    "version": "1.0.0",
+    "description": "Gesture Recognition Demo",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "eslint --ext .ts,.tsx src"
+    },
+    "keywords": [],
+    "author": {
+        "name": "BananasAmIRite",
+        "email": "jasony1230@gmail.com"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "@types/web-bluetooth": "^0.0.21",
+        "@typescript-eslint/eslint-plugin": "^5.62.0",
+        "@typescript-eslint/parser": "^5.62.0",
+        "eslint": "^8.57.1",
+        "eslint-plugin-import": "^2.32.0",
+        "typescript": "~4.5.4",
+        "vite": "^5.4.21"
+    },
+    "dependencies": {
+        "@tensorflow/tfjs": "^4.22.0",
+        "chart.js": "^4.5.1"
+    }
+}

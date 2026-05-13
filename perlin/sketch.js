@@ -85,8 +85,12 @@ var sketch = function (p) {
             cosTheta = -accel.z / len;
             cosTheta = Math.max(-1, Math.min(1, cosTheta));
         }
-        let angle = -Math.asin(Math.max(-1, Math.min(1, accel.z)));
-
+        // let angle = Math.asin(Math.max(-1, Math.min(1, accel.z)));
+        // if (accel.x < 0) {
+        //     angle *= -1;
+        //     angle += Math.PI;
+        // }
+        let angle = Math.atan2(accel.x, accel.z);
         // Math.acos(cosTheta) +
 
         // angle *= p.noise(p.frameCount / 300); // add a touch of randomness (kept from original)

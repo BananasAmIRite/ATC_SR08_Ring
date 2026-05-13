@@ -65,9 +65,9 @@ uint8_t update_accel_data(const accel_sensitivity_t* sens, const accel_data_t *a
  */
 uint8_t notify_accel_data(const accel_sensitivity_t* sens, const accel_data_t *accel_data); 
 
-void update_btn_data(bool btn_pressed); 
+void update_btn_data(uint8_t btn_pressed); 
 
-void notify_btn_data(bool btn_pressed); 
+void notify_btn_data(uint8_t btn_pressed); 
 
 #endif
 
