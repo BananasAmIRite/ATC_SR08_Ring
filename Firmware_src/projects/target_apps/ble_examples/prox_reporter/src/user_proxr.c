@@ -33,6 +33,8 @@
 #include "custs1_task.h"
 #include "user_custs1_impl.h"
 
+#include "fluid/fluid_5x25.h"
+
 
 #if defined(__IS_SDK6_COMPILER_GCC__) && !defined(__clang__)
 #pragma message("Please note that SDK6 GCC support will be deprecated in the next SDK6 release")
@@ -61,6 +63,12 @@ static led_gpios theLedGpiosHigh[] = {
 
 uint8_t LED_Buffer[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
 
+// Persistent 5x25 fluid simulation state
+static fluid_5x25_t g_fluid;
+
+// Cache last converted accel reading for use from timer ISR/display code
+static volatile accel_data_t g_last_accel_mg = {0,0,0};
+
 uint32_t counter_time = 0;
 uint8_t counter_ms = 0;
 uint8_t current_line = 0;
@@ -78,6 +86,7 @@ uint8_t whoami_res = 0;
 accel_sensitivity_t sens; 
 
 static timer_hnd main_timer_hnd = EASY_TIMER_INVALID_TIMER; 
+static timer_hnd button_hold_timer_hnd = EASY_TIMER_INVALID_TIMER;
 
 typedef enum {
     DEFAULT,
@@ -86,7 +95,10 @@ typedef enum {
     // ACCEL_SENS, 
     // WHOAMI, 
     // DISP_INFO, 
+    
+    FLUID_MODE, 
     BT_INIT, 
+    
     BT_NOTIF, 
     NUM_STATES
 } user_state_t;
@@ -95,6 +107,27 @@ uint8_t user_state = 0;
 bool user_run = false;  
 
 bool has_timer_started = false; 
+
+static void button_hold_timer_cb(void)
+{
+    button_hold_timer_hnd = EASY_TIMER_INVALID_TIMER;
+
+    // if (!GPIO_GetPinStatus(GPIO_BUTTON_PORT, GPIO_BUTTON_PIN))
+    // {
+    //     arch_printf("Button held for 5s, restarting\r\n");
+
+
+        // #if (BLE_CUSTOM1_SERVER)
+        //     // if (btn_send_enabled) {
+        //     update_btn_data(5); 
+        //     notify_btn_data(5);
+        //     // }
+        // #endif 
+        platform_reset(RESET_NO_ERROR);
+        // arch_force_active_mode();
+        // NVIC_SystemReset();
+    // }
+}
 
 void calcTime()
 {
@@ -147,9 +180,50 @@ void refreshMenu()
         if((counter_time%2)==0)
                 LED_Buffer[2] = 0x48;*/
 
-        // uint8_t whoami = accel_cmd_whoami();
+        // --- Fluid display ---
+        // Step the simulation with explicit normalized forces in [0,1].
+        if (user_state == FLUID_MODE) {
+            // Use cached accel (converted to mg) populated by main_timer_cb
+            accel_data_t a = g_last_accel_mg;
 
-        LED_Buff_setInt(led_value, LED_Buffer, 5);
+            // Map accelerometer X into left_0_1 using two observed calibration poses (mg):
+            //   left=0 -> x ~= -700
+            //   left=1 -> x ~= 1400
+            // left_0_1 = clamp01((x - x_lo) / (x_hi - x_lo))
+            const int16_t x_lo = -700;
+            const int16_t x_hi =  1400;
+            const float denom_x = (float)(x_hi - x_lo);
+            float left_0_1 = 0.50f;
+            if (denom_x != 0.0f) {
+                left_0_1 = ((float)a.x - (float)x_lo) / denom_x;
+            }
+            if (left_0_1 < 0.0f) left_0_1 = 0.0f;
+            if (left_0_1 > 1.0f) left_0_1 = 1.0f;
+
+            // Map accelerometer Z into down_0_1 using two observed calibration poses (mg):
+            //   down=1 -> z ~= -560
+            //   down=0 -> z ~= 1268
+            // down_0_1 = clamp01((z_hi - z) / (z_hi - z_lo))
+            const int16_t z_lo = -1400;
+            const int16_t z_hi =  1400;
+            const float denom_z = (float)(z_hi - z_lo);
+            float down_0_1 = 0.50f;
+            if (denom_z != 0.0f) {
+                down_0_1 = ((float)z_hi - (float)a.z) / denom_z;
+            }
+            if (down_0_1 < 0.0f) down_0_1 = 0.0f;
+            if (down_0_1 > 1.0f) down_0_1 = 1.0f;
+
+            fluid_5x25_step(&g_fluid, left_0_1, down_0_1);
+
+            // LED driver expects 5 segment bytes.
+            fluid_5x25_to_segments(&g_fluid, LED_Buffer);
+
+            // Keep the 6th byte unused/zero.
+            LED_Buffer[5] = 0x00;
+        } else {
+            LED_Buff_setInt(led_value, LED_Buffer, 5);
+        }
 }
 
 static void timer_cb(void)
@@ -193,14 +267,26 @@ static void main_timer_cb(void) {
         user_run = false; 
     }
      else if (user_state == ACCEL_INIT) {
+        
+        // LED_GPIO_mode(0); 
+        
+        // // Reinitialize and reconfigure accelerometer in case it was powered down during sleep
+        // accel_init();
+        // accel_config();
         LED_GPIO_mode(1);
+        arch_force_active_mode();
+
         bool accel_init_out = accel_init(); 
 
         bool accel_cfg_out = accel_config(); 
 
-        bool accel_set_sens_out = accel_cmd_set_sensitivity(SENS_16G);
+        // TODO: fix this; in the initial fluid calibration, we set sensitivity to 
+        // 16G but reinit so we interpret as 16G but ring is measuring in like 4G or some default value
+        bool accel_set_sens_out = 1; 
+        // bool accel_set_sens_out = accel_cmd_set_sensitivity(SENS_16G);
         
-        accel_cmd_get_sensitivity(&sens); 
+        // accel_cmd_get_sensitivity(&sens); 
+        sens = SENS_16G;
 
         // if (accel_init_out) {
         //     led_value = 1;
@@ -211,6 +297,45 @@ static void main_timer_cb(void) {
         
         // stop after running once
         user_run = false; 
+    }
+    else if (user_state == FLUID_MODE) {
+        LED_GPIO_mode(1);
+
+        // Expose a compact debug view of the fluid state over the accel notification:
+        // x = bitmask of y=0..7 for grid x=0
+        // y = bitmask of y=0..7 for grid x=1
+        // z = bitmask of y=0..7 for grid x=2
+        // accel_data_t data;
+        // data.x = 0;
+        // data.y = 0;
+        // data.z = 0;
+
+        // for (int yy = 0; yy < 8; yy++) {
+        //     if (fluid_5x25_get(&g_fluid, 0, yy) != 0) data.x |= (1u << yy);
+        //     if (fluid_5x25_get(&g_fluid, 1, yy) != 0) data.y |= (1u << yy);
+        //     if (fluid_5x25_get(&g_fluid, 2, yy) != 0) data.z |= (1u << yy);
+        // }
+
+        // #if (BLE_CUSTOM1_SERVER)
+        //     update_accel_data(&sens, &data);
+        //     notify_accel_data(&sens, &data);
+        // #endif
+
+        accel_data_t data;
+        accel_cmd_readaccel(&data);
+        // cache converted-to-mg values for display (avoid I2C from ISR)
+        {
+            accel_data_t mg = data;
+            accel_convert_to_mg(&mg, sens);
+            g_last_accel_mg = mg;
+        }
+
+        #if (BLE_CUSTOM1_SERVER)
+            update_accel_data(&sens, &data); // Send real accelerometer data (raw)
+            notify_accel_data(&sens, &data); // notify corresponding devices
+        #endif
+
+        user_run = true;
     }
     //  else if (user_state == ACCEL_CONFIG) {
     //     LED_GPIO_mode(1);
@@ -278,10 +403,15 @@ static void main_timer_cb(void) {
         // Read accelerometer data
         accel_data_t data;
         accel_cmd_readaccel(&data);
-        // accel_convert_to_mg(&data, sens);
+        // cache converted-to-mg values for display (avoid I2C from ISR)
+        {
+            accel_data_t mg = data;
+            accel_convert_to_mg(&mg, sens);
+            g_last_accel_mg = mg;
+        }
 
         #if (BLE_CUSTOM1_SERVER)
-            update_accel_data(&sens, &data); // Send real accelerometer data
+            update_accel_data(&sens, &data); // Send real accelerometer data (raw)
             notify_accel_data(&sens, &data); // notify corresponding devices
         #endif
         
@@ -350,9 +480,12 @@ void user_app_on_init(void)
 {
 
      default_app_on_init();
-    //  start_main_timer();
+     //  start_main_timer();
      arch_printf("Booted now\r\n");
      LED_GPIO_mode(0);
+
+     // Initialize fluid simulation once at boot
+     fluid_5x25_init(&g_fluid);
 }
 
 static void app_button_press_cb(void)
@@ -369,9 +502,29 @@ static void app_button_press_cb(void)
         // }
     #endif 
 
-    if (pin_val)
-            return; // only set pressed when button goes from pressed to not pressed
-    arch_printf("Button was just pressed\r\n");
+    // if (!pin_val)
+    // {
+    //         if (button_hold_timer_hnd != EASY_TIMER_INVALID_TIMER)
+    //         {
+    //             app_easy_timer_cancel(button_hold_timer_hnd);
+    //             button_hold_timer_hnd = EASY_TIMER_INVALID_TIMER;
+    //         }
+    //         return; // only set pressed when button goes from pressed to not pressed
+    // }
+    // arch_printf("Button was just pressed\r\n");
+
+    // if (button_hold_timer_hnd != EASY_TIMER_INVALID_TIMER)
+    // {
+    //     app_easy_timer_cancel(button_hold_timer_hnd);
+    // }
+    // rising edge
+    if (pin_val && button_hold_timer_hnd == EASY_TIMER_INVALID_TIMER) {
+        button_hold_timer_hnd = app_easy_timer(500, button_hold_timer_cb); // 5 seconds
+    } else if (!pin_val && button_hold_timer_hnd != EASY_TIMER_INVALID_TIMER) {
+        app_easy_timer_cancel(button_hold_timer_hnd);
+        button_hold_timer_hnd = EASY_TIMER_INVALID_TIMER;
+    }
+    if (!pin_val) return; // only change state on rising edge
 
     if (user_state == DEFAULT && !has_timer_started) {
         has_timer_started = true; 
