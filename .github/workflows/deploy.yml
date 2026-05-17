@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+on:
+    push:
+        branches:
+            - demos
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            #
+            # Build app1
+            #
+            - name: Install dependencies (gesture-recognition-demo)
+              working-directory: gesture-recognition-demo
+              run: npm ci
+
+            - name: Build gesture-recognition-demo
+              working-directory: gesture-recognition-demo
+              run: npm run build
+
+            #
+            # Build app2
+            #
+            - name: Install dependencies (sleep-recognition-demo)
+              working-directory: sleep-recognition-demo
+              run: npm ci
+
+            - name: Build sleep-recognition-demo
+              working-directory: sleep-recognition-demo
+              run: npm run build
+
+            #
+            # Prepare deploy directory
+            #
+            - name: Create deploy structure
+              run: |
+                  rm -rf deploy
+                  mkdir -p deploy/gesture-recognition-demo
+                  mkdir -p deploy/sleep-recognition-demo
+
+            - name: Copy build outputs
+              run: |
+                  cp -r gesture-recognition-demo/dist/* deploy/gesture-recognition-demo/
+                  cp -r sleep-recognition-demo/dist/* deploy/sleep-recognition-demo/
+
+            #
+            # Deploy to gh-pages branch
+            #
+            - name: Deploy to GitHub Pages
+              uses: peaceiris/actions-gh-pages@v4
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  publish_branch: gh-pages
+                  publish_dir: ./deploy
+                  force_orphan: true
